@@ -1,0 +1,38 @@
+---
+description: Bump VERSION and add changelog migration when shipping substantive repo changes
+alwaysApply: true
+---
+
+# Version and changelog (automated by the agent)
+
+You cannot detect code changes at runtime without human or tool input. **You** (the Cursor agent) maintain version and DB changelog **in the same change** so the human does not edit `.env`, `VERSION`, or run SQL by hand.
+
+## When to bump and log
+
+When you make **substantive** changes that are merged as part of normal development:
+
+- New or changed **user-facing** behavior (UI, routes, emails, permissions, tasks, reports, footer, help, etc.)
+- New or changed **API** contracts, migrations, security, or data model behavior
+- Notable **bug fixes** users would care about
+
+**Do not** bump for: comment-only edits, whitespace, pure refactors with no behavior change, or internal-only logging unless the user asks.
+
+## What to do (every time the above applies)
+
+1. **Patch-bump** the semver in the repo root **`VERSION`** file (e.g. `1.0.3` → `1.0.4`). Use PATCH for typical iterations; MINOR if you ship a clearly larger feature set in one go.
+2. Add a **new migration** under `database/migrations/` named like `YYYYMMDD_HHMMSS_changelog_vX_Y_Z.sql` (or sequential `_0000NN_` if that matches existing naming) containing:
+   - One or more `INSERT INTO changelog_entries (version, released_at, sort_order, change_text) VALUES ...` rows
+   - Use the **same `version` string** as in `VERSION`
+   - Use `CURDATE()` for `released_at` unless you have a reason to use a fixed date
+   - `sort_order` starting at 0, 1, 2… per bullet
+   - **Plain-language bullets** describing what users or admins will notice (not raw file paths unless helpful)
+3. If the change is user-facing per **help-guide**, update **`views/help.php`** in the same change.
+
+## Overrides
+
+- **`APP_VERSION` in `.env`** may override the `VERSION` file for special deploys; do not require the user to set it.
+
+## Consistency
+
+- Footer and `/changelog` read `config('app.version')` → `app_version()` → `VERSION` / `APP_VERSION`.
+- The changelog page loads **`changelog_entries` from the database** (applied automatically by `MigrationRunner` on deploy).

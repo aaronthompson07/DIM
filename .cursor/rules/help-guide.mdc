@@ -1,0 +1,30 @@
+---
+description: Keep views/help.php in sync when user-facing behavior changes
+alwaysApply: true
+---
+
+# Help guide maintenance
+
+When you add, remove, or materially change **user-facing** behavior in this repo, update **`views/help.php`** in the same change (or immediately after), unless the user explicitly asks not to.
+
+## What counts as user-facing
+
+- Dashboard, login, registration, admin screens, reports, training, modals, footer, or global navigation
+- New settings (company profile, env-driven flags users see), roles, permissions, or plan-gated features
+- Task board rules, time zones, weather, PIN flows, maintenance mode, themes
+- Any new route or API behavior that changes what users see or how they complete tasks
+
+## What to do in `help.php`
+
+1. Adjust the **table of contents** (`#anchors`) if sections are added, renamed, or removed.
+2. Update the relevant **sections** with accurate, plain-language steps (not internal class names unless helpful).
+3. Add **cross-links** between sections when one feature depends on another (e.g. weather ↔ company ZIP).
+4. If behavior is plan- or role-gated, say so (e.g. “when Reports is enabled…”).
+
+## Skip help updates only when
+
+The user asks to skip documentation, or the change is purely internal (refactor, logging, tests, performance with no UX change).
+
+## Related
+
+- For **version bumps and `changelog_entries` migrations** on substantive changes, follow **`changelog-version`** (`.cursor/rules/changelog-version.mdc`).
