@@ -236,7 +236,7 @@
         <div class="admin-panel hidden" id="panel-messages" data-panel="messages">
             <div class="card">
                 <h2>System messages</h2>
-                <p class="muted">Display notices to all users on the dashboard. Maintenance messages switch most users to read-only mode.</p>
+                <p class="muted">Publish notices on the dashboard. Tenant admins only see options for their company. Owner and super admin can also send global notices and maintenance mode.</p>
                 <form id="system-message-form" class="stack">
                     <label for="system-message-text">Message</label>
                     <textarea id="system-message-text" rows="3" maxlength="2000" required></textarea>
@@ -244,11 +244,11 @@
                         <input type="checkbox" id="system-message-global">
                         Global message (all tenants)
                     </label>
-                    <label class="inline-check">
+                    <label id="system-message-maintenance-row" class="inline-check hidden">
                         <input type="checkbox" id="system-message-maintenance">
                         Maintenance mode (always global; view-only for everyone except owner / super admin)
                     </label>
-                    <p class="muted form-hint" id="system-message-maintenance-hint">Tenant admins can publish tenant-only notices. Owner/super admin can publish global notices and maintenance mode.</p>
+                    <p class="muted form-hint" id="system-message-maintenance-hint">You can publish tenant-only notices for your company.</p>
                     <div class="row-actions">
                         <button type="submit">Publish message</button>
                     </div>
@@ -468,7 +468,7 @@
         </div>
     </div>
 
-    <p id="admin-message" class="admin-footer-msg muted"></p>
+    <p id="admin-message" class="admin-footer-msg user-feedback" role="status" aria-live="polite" aria-atomic="true"></p>
 </main>
 <?php require base_path('views/partials/footer.php'); ?>
 <script src="/resources/js/app.js"></script>

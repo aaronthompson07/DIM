@@ -22,7 +22,7 @@
         <div class="banner warning">Maintenance mode is active.</div>
     <?php endif; ?>
 
-    <p id="training-error" class="banner warning hidden"></p>
+    <p id="training-error" class="user-feedback user-feedback--error hidden" role="alert" aria-live="assertive"></p>
     <p id="training-disabled" class="card muted hidden">Training is not enabled for your plan. Ask an owner to enable it on a paid tier in the feature matrix.</p>
 
     <section class="card hidden" id="training-enabled-wrap">

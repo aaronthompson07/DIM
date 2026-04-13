@@ -270,6 +270,14 @@
     const message = document.getElementById("login-message");
     const demoBtn = document.getElementById("demo-btn");
 
+    function setLoginMessage(text, kind = "error") {
+      if (!message) return;
+      message.textContent = text || "";
+      message.classList.remove("auth-message--error", "auth-message--success");
+      if (!text) return;
+      message.classList.add(kind === "success" ? "auth-message--success" : "auth-message--error");
+    }
+
     companyForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const formData = new FormData(companyForm);
@@ -278,16 +286,16 @@
         password: String(formData.get("password") || ""),
       });
       if (!result.ok) {
-        message.textContent = result.message || "Company login failed.";
+        setLoginMessage(result.message || "Company login failed.", "error");
         return;
       }
       window.location.href = "/dashboard";
     });
 
-    demoBtn.addEventListener("click", async () => {
+    demoBtn?.addEventListener("click", async () => {
       const result = await post("/api/auth/demo-login");
       if (!result.ok) {
-        message.textContent = "Demo user login unavailable.";
+        setLoginMessage("Demo user login unavailable.", "error");
         return;
       }
       window.location.href = "/dashboard";
@@ -300,9 +308,17 @@
     const msg = document.getElementById("register-message");
     if (!form) return;
 
+    function setRegisterMessage(text, kind = "error") {
+      if (!msg) return;
+      msg.textContent = text || "";
+      msg.classList.remove("auth-message--error", "auth-message--success");
+      if (!text) return;
+      msg.classList.add(kind === "success" ? "auth-message--success" : "auth-message--error");
+    }
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      msg.textContent = "";
+      setRegisterMessage("");
       const fd = new FormData(form);
       const result = await post("/api/auth/register-tenant", {
         company_name: String(fd.get("company_name") || "").trim(),
@@ -314,7 +330,7 @@
         timezone: String(fd.get("timezone") || "UTC").trim() || "UTC",
       });
       if (!result.ok) {
-        msg.textContent = result.message || "Registration failed.";
+        setRegisterMessage(result.message || "Registration failed.", "error");
         return;
       }
       const cu = String(fd.get("company_username") || "").trim().toLowerCase();
@@ -324,12 +340,12 @@
         password: String(fd.get("company_password") || ""),
       });
       if (!loginCo.ok) {
-        msg.textContent = "Company created. Sign in with your new company login.";
+        setRegisterMessage("Company created. Sign in with your new company login.", "success");
         return;
       }
       const loginPin = await post("/api/auth/pin-login", { pin });
       if (!loginPin.ok) {
-        msg.textContent = "Company created. Sign in and use your PIN on the dashboard.";
+        setRegisterMessage("Company created. Sign in and use your PIN on the dashboard.", "success");
         window.location.href = "/login";
         return;
       }
@@ -608,8 +624,23 @@
       }
     }
 
+    function setPinFeedback(text, tone = "error") {
+      if (!userMessage) return;
+      userMessage.textContent = text || "";
+      userMessage.classList.remove("user-feedback--error", "user-feedback--success", "user-feedback--info");
+      if (!text) return;
+      const cls =
+        tone === "success"
+          ? "user-feedback--success"
+          : tone === "info"
+            ? "user-feedback--info"
+            : "user-feedback--error";
+      userMessage.classList.add(cls);
+      userMessage.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+
     async function openUserPrompt(force) {
-      userMessage.textContent = "";
+      setPinFeedback("");
       pinInput.value = "";
       if (closeUserAuthModal) closeUserAuthModal.style.display = force ? "none" : "inline-block";
       userAuthModal.classList.remove("hidden");
@@ -737,9 +768,19 @@
 
     async function fetchWeatherAlerts() {
       if (!hasUser) return;
+      const winScrollY =
+        window.scrollY ??
+        document.documentElement?.scrollTop ??
+        document.body?.scrollTop ??
+        0;
       const data = await get("/api/weather/alerts");
       if (!data.ok) return;
       renderWeatherAlerts(data);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.scrollTo(0, winScrollY);
+        });
+      });
     }
 
     function startWeatherPolling() {
@@ -760,26 +801,25 @@
       if (!hasUser) return;
       const board = await get("/api/tasks/today-board");
       if (!board.ok) return;
+      const winScrollY =
+        window.scrollY ??
+        document.documentElement?.scrollTop ??
+        document.body?.scrollTop ??
+        0;
+      const restoreWindowScroll = () => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            window.scrollTo(0, winScrollY);
+          });
+        });
+      };
+      try {
       lastBoardLimited = Boolean(board.limited_mode);
       updateDashboardTaskButtons();
       renderSystemMessages(board.system_messages || lastMe?.system_messages || []);
       const todayLabel = board.today || new Date().toISOString().slice(0, 10);
       setCompletedTodayButton(board.completed);
       setAssignedToMeButton(board.assigned_to_me_open);
-      const scrollByKey = {};
-      if (taskBoard) {
-        taskBoard.querySelectorAll(".task-board-list").forEach((listEl) => {
-          const key = listEl.dataset.slotKey || "";
-          if (key) scrollByKey[key] = listEl.scrollTop;
-        });
-      }
-      function restoreListScroll(listEl) {
-        const key = listEl?.dataset?.slotKey || "";
-        if (!key) return;
-        if (Object.prototype.hasOwnProperty.call(scrollByKey, key)) {
-          listEl.scrollTop = Number(scrollByKey[key]) || 0;
-        }
-      }
 
       const openBySlotId = {};
       (board.slot_open_counts || []).forEach((c) => {
@@ -806,7 +846,6 @@
         h.textContent = `Today's tasks (${tasks.length})`;
         const ul = document.createElement("ul");
         ul.className = "task-board-list";
-        ul.dataset.slotKey = "all";
         tasks.forEach((t) => appendTask(ul, t));
         const hint = document.createElement("p");
         hint.className = "muted board-fallback-hint";
@@ -818,7 +857,6 @@
         col.appendChild(ul);
         col.appendChild(hint);
         taskBoard.appendChild(col);
-        restoreListScroll(ul);
         return;
       }
 
@@ -899,14 +937,12 @@
         h.textContent = `${slot.name} (${openN})`;
         const ul = document.createElement("ul");
         ul.className = "task-board-list";
-        ul.dataset.slotKey = `slot-${slot.id}`;
         tasks
           .filter((t) => String(t.time_slot_id) === String(slot.id))
           .forEach((t) => appendTask(ul, t));
         col.appendChild(h);
         col.appendChild(ul);
         taskBoard.appendChild(col);
-        restoreListScroll(ul);
       });
 
       const unassigned = tasks.filter((t) => {
@@ -921,13 +957,14 @@
         h.textContent = `Other (${unassigned.length})`;
         const ul = document.createElement("ul");
         ul.className = "task-board-list";
-        ul.dataset.slotKey = "other";
         unassigned.forEach((t) => appendTask(ul, t));
         col.appendChild(h);
         col.appendChild(ul);
         taskBoard.appendChild(col);
-        restoreListScroll(ul);
       }
+    } finally {
+      restoreWindowScroll();
+    }
     }
 
     async function refreshAssignedToMeModal() {
@@ -1126,7 +1163,7 @@
       e.preventDefault();
       const result = await post("/api/auth/pin-login", { pin: pinInput.value });
       if (!result.ok) {
-        userMessage.textContent = result.message || "PIN login failed.";
+        setPinFeedback(result.message || "PIN login failed.", "error");
         return;
       }
       // Full reload so ArrowChat autoload (footer) runs with the new user session/cookies.
@@ -1196,14 +1233,34 @@
     const systemMessageMaintenance = document.getElementById("system-message-maintenance");
     const systemMessageGlobal = document.getElementById("system-message-global");
     const systemMessageScopeRow = document.getElementById("system-message-scope-row");
+    const systemMessageMaintenanceRow = document.getElementById("system-message-maintenance-row");
     const systemMessageMaintenanceHint = document.getElementById("system-message-maintenance-hint");
     const systemMessageList = document.getElementById("system-message-list");
 
     let currentConfig = null;
     let currentActorRole = "";
 
-    function setMessage(text) {
-      if (message) message.textContent = text;
+    function setMessage(text, tone = "info") {
+      if (!message) return;
+      message.textContent = text || "";
+      message.classList.remove("user-feedback--error", "user-feedback--success", "user-feedback--info", "muted");
+      message.classList.add("admin-footer-msg", "user-feedback");
+      if (!text) return;
+      const cls =
+        tone === "error"
+          ? "user-feedback--error"
+          : tone === "success"
+            ? "user-feedback--success"
+            : "user-feedback--info";
+      message.classList.add(cls);
+      if (tone === "error") {
+        message.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
+    }
+
+    function setMessageOk(ok, okText, errFallback, serverMsg) {
+      const err = String(serverMsg || "").trim() || errFallback;
+      setMessage(ok ? okText : err, ok ? "success" : "error");
     }
 
     function isTaskEditorRole(role) {
@@ -1481,7 +1538,7 @@
       const d = await get("/api/training/definitions");
       const t = await get("/api/training/templates");
       if (!d.ok || !t.ok) {
-        setMessage(d.message || t.message || "Could not load training.");
+        setMessage(d.message || t.message || "Could not load training.", "error");
         return;
       }
       trDefsCache = d.definitions || [];
@@ -1733,7 +1790,7 @@
             return;
           }
           const result = await post("/api/admin/tasks/delete", { id: Number(t.id) });
-          setMessage(result.ok ? "Task removed." : result.message || "Delete failed.");
+          setMessageOk(result.ok, "Task removed.", "Delete failed.", result.message);
           if (result.ok) {
             hideTaskInlineEditor();
             await loadTasks();
@@ -1771,7 +1828,7 @@
           const sort_order = Number(row.querySelector(".slot-order-input").value);
           const is_active = row.querySelector(".slot-active-input").checked ? 1 : 0;
           const result = await post("/api/admin/time-slots/update", { id, name, sort_order, is_active });
-          setMessage(result.ok ? "Slot saved." : (result.message || "Save failed."));
+          setMessageOk(result.ok, "Slot saved.", "Save failed.", result.message);
           if (result.ok) {
             await loadSlotEditor();
             await loadTaskSlotOptions(true);
@@ -1812,7 +1869,7 @@
             is_active,
             color_hex,
           });
-          setMessage(result.ok ? "Priority saved." : (result.message || "Save failed."));
+          setMessageOk(result.ok, "Priority saved.", "Save failed.", result.message);
           if (result.ok) {
             await loadPriorityEditor();
             await loadTaskPriorityOptions(true);
@@ -1825,7 +1882,7 @@
       if (!systemMessageList || !currentConfig?.can_manage_system_messages) return;
       const res = await get("/api/admin/system-messages");
       if (!res.ok) {
-        setMessage(res.message || "Could not load messages.");
+        setMessage(res.message || "Could not load messages.", "error");
         return;
       }
       systemMessageList.innerHTML = "";
@@ -1846,7 +1903,7 @@
         del.addEventListener("click", async () => {
           if (!window.confirm("Delete this system message?")) return;
           const r = await post("/api/admin/system-messages/delete", { id: Number(m.id) });
-          setMessage(r.ok ? "Message deleted." : (r.message || "Delete failed."));
+          setMessageOk(r.ok, "Message deleted.", "Delete failed.", r.message);
           if (r.ok) await loadSystemMessagesAdmin();
         });
         actions.appendChild(del);
@@ -1897,7 +1954,7 @@
             show_ads: card.querySelector(".pe-ads").checked ? 1 : 0,
             is_active: card.querySelector(".pe-act").checked ? 1 : 0,
           });
-          setMessage(result.ok ? "Plan updated." : (result.message || "Failed."));
+          setMessageOk(result.ok, "Plan updated.", "Failed.", result.message);
           if (result.ok) await loadConfig();
         });
       });
@@ -2037,7 +2094,7 @@
             email: expand.querySelector(".u-email").value.trim(),
             role: expand.querySelector(".u-role").value,
           });
-          setMessage(result.ok ? "User updated." : (result.message || "Update failed."));
+          setMessageOk(result.ok, "User updated.", "Update failed.", result.message);
           if (result.ok) loadUsersAdmin();
         });
         expand.querySelector(".u-pin").addEventListener("click", () => {
@@ -2046,12 +2103,12 @@
         expand.querySelector(".u-pin-apply").addEventListener("click", async () => {
           const pin = expand.querySelector(".u-pin-input").value;
           const result = await post("/api/admin/users/set-pin", { id: u.id, pin });
-          setMessage(result.ok ? "PIN updated." : (result.message || "PIN failed."));
+          setMessageOk(result.ok, "PIN updated.", "PIN failed.", result.message);
           expand.querySelector(".u-pin-input").value = "";
         });
         expand.querySelector(".u-toggle").addEventListener("click", async () => {
           const result = await post("/api/admin/users/update", { id: u.id, is_active: active ? 0 : 1 });
-          setMessage(result.ok ? "Updated." : (result.message || "Failed."));
+          setMessageOk(result.ok, "Updated.", "Failed.", result.message);
           if (result.ok) loadUsersAdmin();
         });
 
@@ -2108,24 +2165,26 @@
 
       const config = await get("/api/admin/config");
       if (!config.ok) {
-        setMessage(config.message || "Unable to load admin configuration.");
+        setMessage(config.message || "Unable to load admin configuration.", "error");
         return;
       }
 
       currentConfig = config;
       const globalAdmin = ["owner", "super_admin"].includes(currentActorRole);
       if (systemMessageScopeRow) systemMessageScopeRow.classList.toggle("hidden", !globalAdmin);
+      if (systemMessageMaintenanceRow) systemMessageMaintenanceRow.classList.toggle("hidden", !globalAdmin);
       if (systemMessageMaintenanceHint) {
         systemMessageMaintenanceHint.textContent = globalAdmin
           ? "You can publish tenant messages, global messages, and global maintenance mode."
-          : "You can publish tenant-only notices. Maintenance mode is owner/super admin only.";
+          : "Notices you publish are visible to everyone signed in at your company.";
       }
       if (systemMessageMaintenance) {
         systemMessageMaintenance.checked = false;
-        systemMessageMaintenance.disabled = !globalAdmin;
+        systemMessageMaintenance.disabled = false;
       }
       if (systemMessageGlobal) {
         systemMessageGlobal.checked = false;
+        systemMessageGlobal.disabled = false;
       }
       buildTabs(config, currentActorRole);
 
@@ -2216,7 +2275,7 @@
       const result = id
         ? await post("/api/admin/tasks/update", { id: Number(id), ...payload })
         : await post("/api/admin/tasks/create", payload);
-      setMessage(result.ok ? "Task saved." : (result.message || "Save failed."));
+      setMessageOk(result.ok, "Task saved.", "Save failed.", result.message);
       if (result.ok) {
         hideTaskInlineEditor();
         resetTaskForm();
@@ -2230,7 +2289,7 @@
       if (!id) return;
       const payload = buildTaskPayload("inline-");
       const result = await post("/api/admin/tasks/update", { id: Number(id), ...payload });
-      setMessage(result.ok ? "Task saved." : (result.message || "Save failed."));
+      setMessageOk(result.ok, "Task saved.", "Save failed.", result.message);
       if (result.ok) {
         hideTaskInlineEditor();
         await loadTasks();
@@ -2244,7 +2303,7 @@
       const name = newSlotName.value.trim();
       if (!name) return;
       const result = await post("/api/admin/time-slots/create", { name });
-      setMessage(result.ok ? "Slot added." : (result.message || "Failed."));
+      setMessageOk(result.ok, "Slot added.", "Failed.", result.message);
       if (result.ok) {
         newSlotName.value = "";
         await loadSlotEditor();
@@ -2257,7 +2316,7 @@
       if (!name) return;
       const color_hex = newPriorityColor?.value || "#64748b";
       const result = await post("/api/admin/priorities/create", { name, color_hex });
-      setMessage(result.ok ? "Priority added." : (result.message || "Failed."));
+      setMessageOk(result.ok, "Priority added.", "Failed.", result.message);
       if (result.ok) {
         newPriorityName.value = "";
         await loadPriorityEditor();
@@ -2284,7 +2343,7 @@
         payload.is_active = document.getElementById("co-is-active")?.checked ? 1 : 0;
       }
       const result = await post("/api/admin/tenant-profile", payload);
-      setMessage(result.ok ? "Company settings saved." : (result.message || "Failed."));
+      setMessageOk(result.ok, "Company settings saved.", "Failed.", result.message);
       if (result.ok) {
         const m = await get("/api/auth/me");
         if (m.ok && m.resolved_theme) applyResolvedTheme(m.resolved_theme);
@@ -2301,7 +2360,12 @@
         is_paid: document.getElementById("plan-is-paid")?.checked ? 1 : 0,
         show_ads: document.getElementById("plan-show-ads")?.checked ? 1 : 0,
       });
-      setMessage(result.ok ? "Plan created. Configure features on the Feature matrix tab." : (result.message || "Failed."));
+      setMessageOk(
+        result.ok,
+        "Plan created. Configure features on the Feature matrix tab.",
+        "Failed.",
+        result.message
+      );
       if (result.ok) {
         planCreateForm.reset();
         const ads = document.getElementById("plan-show-ads");
@@ -2318,7 +2382,7 @@
         role: newUserRole.value,
         pin: newUserPin.value,
       });
-      setMessage(result.ok ? "User created." : (result.message || "Create failed."));
+      setMessageOk(result.ok, "User created.", "Create failed.", result.message);
       if (result.ok) {
         newUserName.value = "";
         newUserEmail.value = "";
@@ -2333,11 +2397,13 @@
       e.preventDefault();
       const text = (systemMessageText?.value || "").trim();
       if (!text) return;
-      const maintenance = systemMessageMaintenance?.checked ? 1 : 0;
+      const globalAdmin = ["owner", "super_admin"].includes(currentActorRole);
+      const maintenance =
+        globalAdmin && systemMessageMaintenance?.checked ? 1 : 0;
       const scope =
         maintenance === 1
           ? "global"
-          : systemMessageGlobal?.checked
+          : globalAdmin && systemMessageGlobal?.checked
             ? "global"
             : "tenant";
       const result = await post("/api/admin/system-messages/create", {
@@ -2345,7 +2411,7 @@
         is_maintenance: maintenance,
         scope,
       });
-      setMessage(result.ok ? "Message published." : (result.message || "Publish failed."));
+      setMessageOk(result.ok, "Message published.", "Publish failed.", result.message);
       if (result.ok) {
         if (systemMessageText) systemMessageText.value = "";
         if (systemMessageMaintenance) systemMessageMaintenance.checked = false;
@@ -2367,13 +2433,13 @@
     impersonateGo?.addEventListener("click", async () => {
       const tenantId = Number(impersonateSelect.value || 0);
       const result = await post("/api/admin/impersonate", { tenant_id: tenantId });
-      setMessage(result.ok ? "Now viewing selected tenant." : (result.message || "Impersonation failed."));
+      setMessageOk(result.ok, "Now viewing selected tenant.", "Impersonation failed.", result.message);
       if (result.ok) await loadConfig();
     });
 
     impersonateClear?.addEventListener("click", async () => {
       const result = await post("/api/admin/impersonate-clear");
-      setMessage(result.ok ? "Stopped viewing other tenant." : (result.message || "Clear failed."));
+      setMessageOk(result.ok, "Stopped viewing other tenant.", "Clear failed.", result.message);
       if (result.ok) await loadConfig();
     });
 
@@ -2388,7 +2454,12 @@
         admin_pin: document.getElementById("ct-admin-pin")?.value || "",
         timezone: document.getElementById("ct-tz")?.value?.trim() || "UTC",
       });
-      setMessage(result.ok ? `Company created (#${result.tenant_id}). They can sign in with the new company login.` : (result.message || "Create failed."));
+      setMessageOk(
+        result.ok,
+        `Company created (#${result.tenant_id}). They can sign in with the new company login.`,
+        "Create failed.",
+        result.message
+      );
       if (result.ok) {
         createTenantForm.reset();
         const tz = document.getElementById("ct-tz");
@@ -2416,7 +2487,7 @@
         is_enabled: input.checked ? 1 : 0,
       }));
       const result = await post("/api/admin/feature-matrix", { entries });
-      setMessage(result.ok ? "Matrix saved." : (result.message || "Failed."));
+      setMessageOk(result.ok, "Matrix saved.", "Failed.", result.message);
     });
 
     function resetTrainingDefForm() {
@@ -2446,7 +2517,7 @@
         sort_order: Number(document.getElementById("tr-def-sort").value || 0),
         is_active: document.getElementById("tr-def-active").checked ? 1 : 0,
       });
-      setMessage(result.ok ? "Training item saved." : (result.message || "Save failed."));
+      setMessageOk(result.ok, "Training item saved.", "Save failed.", result.message);
       if (result.ok) {
         resetTrainingDefForm();
         await loadTrainingAdminPanel();
@@ -2462,7 +2533,7 @@
         description: document.getElementById("tr-tpl-desc").value.trim(),
         is_active: document.getElementById("tr-tpl-active").checked ? 1 : 0,
       });
-      setMessage(result.ok ? "Template saved." : (result.message || "Save failed."));
+      setMessageOk(result.ok, "Template saved.", "Save failed.", result.message);
       if (result.ok) {
         resetTrainingTplForm();
         await loadTrainingAdminPanel();
@@ -2479,7 +2550,7 @@
       const id = Number(pick?.value || 0);
       if (id < 1) return;
       if (trTemplateItemOrder.includes(id)) {
-        setMessage("That item is already in the list.");
+        setMessage("That item is already in the list.", "error");
         return;
       }
       setMessage("");
@@ -2493,7 +2564,7 @@
         template_id: templateId,
         definition_ids: trTemplateItemOrder,
       });
-      setMessage(result.ok ? "Template items updated." : (result.message || "Failed."));
+      setMessageOk(result.ok, "Template items updated.", "Failed.", result.message);
       if (result.ok) await loadTrainingAdminPanel();
     });
 
@@ -2501,17 +2572,18 @@
       const user_id = Number(document.getElementById("tr-assign-user").value || 0);
       const definition_id = Number(document.getElementById("tr-assign-def").value || 0);
       const result = await post("/api/training/assign-definition", { user_id, definition_id });
-      setMessage(result.ok ? "Assigned." : (result.message || "Assign failed."));
+      setMessageOk(result.ok, "Assigned.", "Assign failed.", result.message);
     });
 
     document.getElementById("tr-assign-bundle")?.addEventListener("click", async () => {
       const user_id = Number(document.getElementById("tr-assign-user").value || 0);
       const template_id = Number(document.getElementById("tr-assign-tpl").value || 0);
       const result = await post("/api/training/assign-template", { user_id, template_id });
-      setMessage(
-        result.ok
-          ? `Created ${result.assignments_created ?? 0} assignment(s).`
-          : result.message || "Assign failed."
+      setMessageOk(
+        result.ok,
+        `Created ${result.assignments_created ?? 0} assignment(s).`,
+        "Assign failed.",
+        result.message
       );
     });
 

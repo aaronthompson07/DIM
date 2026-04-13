@@ -34,7 +34,7 @@
             <button type="submit">Apply</button>
         </form>
         <p class="muted" id="reports-period"></p>
-        <p id="reports-error" class="banner warning hidden"></p>
+        <p id="reports-error" class="user-feedback user-feedback--error hidden" role="alert" aria-live="assertive"></p>
         <div id="reports-summary" class="stats stats-today"></div>
     </section>
 

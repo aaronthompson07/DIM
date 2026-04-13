@@ -56,6 +56,7 @@
 
         <section class="card help-section" id="company-time">
             <h2>Company time, weather &amp; footer</h2>
+            <p class="muted">The site footer stays at the bottom of the window while you scroll long pages, so version, help, and (when signed in) the clock and weather line stay visible.</p>
             <h3>Time zone (not the server clock)</h3>
             <p>Your organization’s <strong>time zone</strong> is set under <strong>Admin → Company</strong> (IANA name, e.g. <code>America/New_York</code>). It is chosen from a dropdown so it is always valid.</p>
             <ul>
@@ -75,7 +76,7 @@
         <section class="card help-section" id="dashboard">
             <h2>Dashboard &amp; tasks</h2>
             <h3>The board</h3>
-            <p>Open tasks for <strong>today</strong> (in the <a href="#company-time">company time zone</a>) appear in columns by <strong>time of day</strong> (for example Morning, Afternoon, Evening). Admins define those columns under Admin → Time of day.</p>
+            <p>Open tasks for <strong>today</strong> (in the <a href="#company-time">company time zone</a>) appear in columns by <strong>time of day</strong> (for example Morning, Afternoon, Evening). Admins define those columns under Admin → Time of day. Each column grows with its open tasks; use normal page scroll to move through the board (on wide screens you can still scroll sideways if there are many columns).</p>
             <ul>
                 <li><strong>Done</strong> — Marks today’s occurrence complete. Completed work shows in “Completed today.”</li>
                 <li><strong>Add task / Edit</strong> — Users with task-edit permission can add a task from the board header and edit a task inline from each card without leaving the dashboard.</li>
@@ -83,11 +84,12 @@
                 <li><strong>Assigned to me</strong> — Opens a list of today’s open tasks assigned to you; you can complete them from there without hunting the columns.</li>
                 <li><strong>Completed today</strong> — Lists what was finished today; managers can sometimes undo a completion from the same day. Completion times are shown in the <a href="#company-time">company time zone</a> (not the web server’s clock).</li>
                 <li><strong>Live updates</strong> — While your PIN is active, the task board refreshes periodically so you see changes from teammates.</li>
+                <li><strong>PIN errors</strong> — If your PIN is wrong or invalid, a highlighted message appears above the keypad so it’s easy to notice; try again or ask an admin to confirm your PIN.</li>
             </ul>
             <h3>Weather alerts (when configured)</h3>
             <p>If your company saved a US ZIP, see <a href="#company-time">Company time, weather &amp; footer</a>. Active NWS alerts appear in a highlighted card above the task columns when present.</p>
             <h3>System messages</h3>
-            <p>Tenant admins can publish tenant-only notices that appear above weather alerts. Owner/super admin can also publish global notices for all tenants. Maintenance mode notices are global and switch everyone to view-only except owner/super admin until removed.</p>
+            <p>Notices can appear above weather alerts on the dashboard. Tenant admins only publish for their own company. Owner/super admin can also publish global notices and maintenance mode (global; view-only for everyone except owner/super admin until removed).</p>
             <h3>Recurrence (in admin)</h3>
             <p>Tasks can be one-off, daily, weekly, bi-weekly (with an anchor date), monthly, or quarterly. Monthly and quarterly can use either a day of month or the <strong>first chosen weekday</strong> in that month. Admins set recurrence when creating or editing a task. Which day counts as “today” follows the company time zone.</p>
         </section>
@@ -111,7 +113,7 @@
                 <li><strong>Tasks</strong> — Create and edit tasks: title, details, priority, time-of-day column, recurrence, optional assignee, infinity, and active/inactive. Edit can open <strong>inline under the task row</strong> so you don’t scroll back to the top. <strong>Delete</strong> soft-deletes a task: it disappears from the board and task list but past completions stay available for reporting.</li>
                 <li><strong>Time of day</strong> — Name and order the columns on the dashboard; you can deactivate a slot you no longer need. Task assignments use the slot saved on each task; the board keeps tasks aligned with your columns.</li>
                 <li><strong>Priorities</strong> — Colors and labels used on the board.</li>
-                <li><strong>Messages</strong> — Tenant admins can publish tenant notices. Owner/super admin can publish global notices. Maintenance mode is global-only and sets most users to view-only until removed.</li>
+                <li><strong>Messages</strong> — Tenant admins see only tenant-wide notices for their company. Owner/super admin additionally see options for global notices and maintenance mode (global-only; most users become view-only until removed).</li>
                 <li><strong>People</strong> — Create users, roles, and PINs.</li>
                 <li><strong>Company</strong> — Company name, owner email, <strong>time zone</strong> (dropdown), <strong>US ZIP for weather</strong> (optional), header logo URL, default theme, and (for privileged roles) company login, plan, and account active flag.</li>
                 <li><strong>Plans / Feature matrix</strong> — Subscription level and which optional features (reports, training, chat, ads, etc.) are on for your tenant.</li>
@@ -135,6 +137,7 @@
         <section class="card help-section" id="plans">
             <h2>Plans &amp; features</h2>
             <p>Your organization’s <strong>subscription level</strong> controls optional modules: task reports, custom themes, employee training, in-app chat (ArrowChat), advertisements on the dashboard, and more. Admins with access adjust these in the <strong>feature matrix</strong> and company profile. If something is missing from your menu, it may be turned off for your plan.</p>
+            <p class="muted">When Google AdSense is configured on the server, the public home page may load the publisher script only (no ad units there) so Google can recognize the site; dashboard ads still follow the feature matrix. If you use AdSense, review <strong>Auto ads</strong> in your AdSense account so unwanted placements do not appear on the home page.</p>
             <p><strong>ArrowChat</strong> loads from a single autoload script in the <strong>footer</strong> after your company is signed in, when the <strong>ArrowChat</strong> feature is turned <strong>on</strong> in the feature matrix for your plan. The server may set <code>ARROWCHAT_AUTOLOAD_URL</code> if the chat host URL differs from the default.</p>
             <p>If the chat bar appears but <strong>no users</strong> show or ArrowChat endpoints (such as <code>receive_search.php</code>) return errors: the chat scripts run on the <strong>ArrowChat host</strong>, which does not share your DoItMeow login cookie unless you configure that. Options: set <code>SESSION_COOKIE_DOMAIN</code> in <code>.env</code> (e.g. <code>.doitmeow.com</code>) so the <code>doitmeow_session</code> cookie is visible to ArrowChat on another subdomain <strong>and</strong> both apps use the same session storage; or use the optional <strong>bridge cookie</strong> (<code>ARROWCHAT_BRIDGE_*</code>) and the sample in <code>app/Core/ArrowChatBridge.php</code>. On the ArrowChat server, <code>includes/config.php</code> must use the same MySQL database and column names as DoItMeow’s <code>users</code> table (<code>id</code>, <code>display_name</code>, <code>tenant_id</code>). Check the PHP error log on the ArrowChat host for the exact cause of HTTP 500 responses.</p>
         </section>

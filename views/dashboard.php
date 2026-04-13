@@ -152,6 +152,7 @@
     <div class="modal-inner">
         <h3>Enter your 6-digit PIN</h3>
         <p class="muted">Your PIN identifies you for this company. No need to pick your name.</p>
+        <p id="dashboard-user-message" class="user-feedback" role="alert" aria-live="assertive" aria-atomic="true"></p>
         <form id="dashboard-user-form" class="stack">
             <label>PIN</label>
             <input id="dashboard-pin-input" type="password" maxlength="6" pattern="\d{6}" inputmode="numeric" autocomplete="one-time-code" required>
@@ -159,7 +160,6 @@
             <button type="submit">Continue</button>
         </form>
         <button id="close-user-auth-modal" type="button">Close</button>
-        <p id="dashboard-user-message" class="muted"></p>
     </div>
 </div>
 <?php require base_path('views/partials/footer.php'); ?>

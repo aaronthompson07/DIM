@@ -42,7 +42,7 @@
             <div class="auth-alt-actions">
                 <button id="demo-btn" class="ghost auth-demo" type="button">Try demo</button>
             </div>
-            <p id="login-message" class="auth-message muted" role="status"></p>
+            <p id="login-message" class="auth-message" role="alert" aria-live="assertive" aria-atomic="true"></p>
 
             <?php if (filter_var((string) env('ALLOW_PUBLIC_SIGNUP', 'true'), FILTER_VALIDATE_BOOL)): ?>
                 <p class="auth-switch muted">New here? <a href="/register">Create a company account</a></p>

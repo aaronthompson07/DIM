@@ -69,7 +69,7 @@
                 <button type="submit" class="auth-submit">Create company</button>
             </form>
 
-            <p id="register-message" class="auth-message muted" role="status"></p>
+            <p id="register-message" class="auth-message" role="alert" aria-live="polite" aria-atomic="true"></p>
             <p class="auth-switch muted"><a href="/login">Already have a company? Sign in</a></p>
         </section>
     </div>
