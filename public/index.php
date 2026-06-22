@@ -15,9 +15,11 @@ require dirname(__DIR__) . '/app/Services/AuditLogger.php';
 require dirname(__DIR__) . '/app/Services/WeatherAlertsService.php';
 require dirname(__DIR__) . '/app/Controllers/PageController.php';
 require dirname(__DIR__) . '/app/Controllers/ApiController.php';
+require dirname(__DIR__) . '/app/Controllers/SupportController.php';
 
 use App\Controllers\ApiController;
 use App\Controllers\PageController;
+use App\Controllers\SupportController;
 use App\Core\Auth;
 use App\Core\Database;
 use App\Core\Env;
@@ -36,6 +38,7 @@ $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 
 $pageController = new PageController();
 $api = new ApiController($pdo, $limitedMode);
+$supportApi = new SupportController($pdo, $limitedMode);
 
 $tenantMaintenanceWriteLockActive = static function () use ($pdo): bool {
     try {
@@ -73,7 +76,11 @@ if ($path === '/dashboard') {
 }
 
 if ($path === '/admin') {
-    $pageController->admin($limitedMode, $migrationError);
+    $pageController->admin($limitedMode, $migrationError, 'hub');
+    exit;
+}
+if (preg_match('#^/admin/(impersonate|create-company|tasks|slots|priorities|messages|users|logs|training|company|plans|matrix)$#', $path, $adminPathMatch)) {
+    $pageController->admin($limitedMode, $migrationError, $adminPathMatch[1]);
     exit;
 }
 
@@ -94,6 +101,21 @@ if ($path === '/help') {
 
 if ($path === '/changelog') {
     $pageController->changelog($limitedMode, $migrationError);
+    exit;
+}
+
+if ($path === '/support') {
+    $pageController->support($limitedMode, $migrationError);
+    exit;
+}
+
+if ($path === '/support/all') {
+    $pageController->supportAll($limitedMode, $migrationError);
+    exit;
+}
+
+if (preg_match('#^/support/(\d+)$#', $path, $supportPathMatch)) {
+    $pageController->supportTicket($limitedMode, $migrationError, (int) $supportPathMatch[1]);
     exit;
 }
 
@@ -351,6 +373,36 @@ if (str_starts_with($path, '/api/')) {
     }
     if ($method === 'POST' && $path === '/api/training/signoff') {
         $api->trainingSignoff();
+        exit;
+    }
+
+    if ($method === 'GET' && $path === '/api/support/tickets') {
+        $supportApi->listTickets();
+        exit;
+    }
+    if ($method === 'POST' && $path === '/api/support/tickets') {
+        $supportApi->createTicket();
+        exit;
+    }
+    if (preg_match('#^/api/support/tickets/(\d+)$#', $path, $sm) && $method === 'GET') {
+        $supportApi->getTicket((int) $sm[1]);
+        exit;
+    }
+    if (preg_match('#^/api/support/tickets/(\d+)/messages$#', $path, $sm) && $method === 'POST') {
+        $supportApi->postMessage((int) $sm[1]);
+        exit;
+    }
+    if (preg_match('#^/api/support/tickets/(\d+)/close$#', $path, $sm) && $method === 'POST') {
+        $supportApi->closeTicket((int) $sm[1]);
+        exit;
+    }
+    if ($method === 'GET' && $path === '/api/support/attachment') {
+        $supportApi->serveAttachment();
+        exit;
+    }
+
+    if ($method === 'GET' && $path === '/api/holidays/season') {
+        $api->holidaysSeason();
         exit;
     }
 

@@ -60,7 +60,20 @@
 
     <section class="card">
         <h3>Completed tasks (detail)</h3>
-        <p class="muted">Up to 250 completions in this date range, newest first.</p>
+        <div class="reports-detail-toolbar row-actions">
+            <label class="inline-check">Rows
+                <select id="reports-detail-limit" aria-label="Number of detail rows to show">
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="250" selected>250</option>
+                    <option value="500">500</option>
+                    <option value="1000">1,000</option>
+                    <option value="all">All (up to 50,000)</option>
+                </select>
+            </label>
+            <button type="button" id="reports-export-csv" class="ghost">Export CSV</button>
+        </div>
+        <p class="muted" id="reports-detail-note"></p>
         <div class="reports-table-wrap reports-detail-wrap">
             <table class="matrix-table" id="reports-detail">
                 <thead>

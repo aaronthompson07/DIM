@@ -24,7 +24,6 @@
             <button type="button" id="switch-user-btn" class="ghost">Switch user</button>
         </div>
         <a href="/training" id="training-link-wrap" class="hidden"><button type="button">Training</button></a>
-        <a href="/reports" id="reports-link-wrap" class="hidden"><button type="button" id="reports-link">Reports</button></a>
         <a href="/admin" id="admin-link-wrap" class="hidden"><button id="admin-link" type="button">Admin</button></a>
         <button id="theme-toggle" type="button">Toggle Theme</button>
         <button id="logout-all" type="button">Logout</button>
@@ -35,8 +34,7 @@
         <div class="banner warning">Maintenance mode is active. Write actions are disabled.</div>
     <?php endif; ?>
 
-    <section id="system-messages-section" class="card system-messages-card hidden" aria-labelledby="system-messages-title">
-        <h2 id="system-messages-title" class="system-messages-title">System messages</h2>
+    <section id="system-messages-section" class="card system-messages-card hidden" aria-label="System messages">
         <ul id="system-messages-list" class="system-messages-list"></ul>
     </section>
 

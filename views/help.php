@@ -32,6 +32,7 @@
             <li><a href="#admin">Admin</a></li>
             <li><a href="#reports">Reports</a></li>
             <li><a href="#training">Training</a></li>
+            <li><a href="#support">Support tickets</a></li>
             <li><a href="#plans">Plans &amp; features</a></li>
             <li><a href="#changelog">Changelog &amp; version</a></li>
             <li><a href="#other">Other</a></li>
@@ -50,19 +51,20 @@
             <ul>
                 <li>Company session and user PIN are separate: logging out “all the way” uses <strong>Logout</strong> and returns you to the company login page.</li>
                 <li>After too many wrong PIN attempts, your PIN may lock briefly for security.</li>
-                <li>The footer can show <strong>live local time</strong> for your company’s time zone once you are company-signed-in. <strong>Current weather</strong> in the footer (from your company’s US ZIP) loads after you complete PIN sign-in, because that data is tied to your user session.</li>
+                <li>The footer can show <strong>live local time</strong> for your company’s time zone once you are company-signed-in. <strong>Current weather</strong> in the footer (from your company’s US ZIP) loads after you complete PIN sign-in, because that data is tied to your user session. After PIN sign-in you also get <strong>Support &amp; tickets</strong> in the footer to open your company’s support page.</li>
             </ul>
         </section>
 
         <section class="card help-section" id="company-time">
             <h2>Company time, weather &amp; footer</h2>
-            <p class="muted">The site footer stays at the bottom of the window while you scroll long pages, so version, help, and (when signed in) the clock and weather line stay visible.</p>
+            <p class="muted">The site footer stays at the bottom of the window while you scroll long pages, so version, help, the pet feeding calculator, and (when signed in) the clock and weather line stay visible.</p>
             <h3>Time zone (not the server clock)</h3>
             <p>Your organization’s <strong>time zone</strong> is set under <strong>Admin → Company</strong> (IANA name, e.g. <code>America/New_York</code>). It is chosen from a dropdown so it is always valid.</p>
             <ul>
                 <li><strong>“Today” for tasks</strong> — Open tasks, due dates, recurrence (day of week, day of month), and “completed today” use this calendar day in the <em>company</em> time zone, not the hosting server’s time zone.</li>
                 <li><strong>Reports</strong> — When you pick a date range, defaults align with company-local dates when your session provides the time zone.</li>
                 <li><strong>Footer clock</strong> — After company sign-in, the footer shows the <strong>current date and time</strong> in that same time zone and updates every second.</li>
+                <li><strong>Seasonal background</strong> — After PIN sign-in, many pages use a very light seasonal tint around <strong>US federal public holidays</strong> (four days before and after each holiday, in your company’s calendar). There is no separate holiday list page; which day counts as “today” still follows this same time zone.</li>
             </ul>
             <h3>US ZIP and weather</h3>
             <p>Admins can enter a <strong>US ZIP code</strong> (5 digits or ZIP+4) in <strong>Admin → Company</strong>. Leave it blank to turn weather off.</p>
@@ -70,6 +72,7 @@
                 <li><strong>Dashboard — Weather alerts</strong> — When the ZIP is set and PIN sign-in is active, if the National Weather Service has <strong>active alerts</strong> for that area, a card appears <strong>above “Open tasks”</strong> with headline, area, expiry, and a link to details on weather.gov. The app refreshes alert data on a schedule (and caches results server-side briefly so the weather service isn’t overloaded).</li>
                 <li><strong>Footer — Current conditions</strong> — After PIN sign-in, the footer can show <strong>approximate temperature (°F)</strong> and a short description (e.g. “Partly Cloudy”) from the nearest NWS observation site. This updates on a slower schedule than the clock.</li>
                 <li>Weather features require a <strong>valid US ZIP</strong> and depend on third-party services (geocoding and NOAA/NWS). If something is unavailable, the card or footer line may stay hidden until service returns.</li>
+                <li><strong>Pet feeding calculator</strong> — Opens in a separate window from the footer. Enter body weight, food kcal/cup, animal type, and lifestyle to estimate daily cups and per-meal portions.</li>
             </ul>
         </section>
 
@@ -81,9 +84,9 @@
                 <li><strong>Done</strong> — Marks today’s occurrence complete. Completed work shows in “Completed today.”</li>
                 <li><strong>Add task / Edit</strong> — Users with task-edit permission can add a task from the board header and edit a task inline from each card without leaving the dashboard.</li>
                 <li><strong>Infinity</strong> — Some tasks carry forward until done; the board may label them as carried over.</li>
-                <li><strong>Assigned to me</strong> — Opens a list of today’s open tasks assigned to you; you can complete them from there without hunting the columns.</li>
+                <li><strong>Assigned to me</strong> — Opens a list of today’s open tasks assigned to you; you can complete them from there without hunting the columns. If that count <strong>increases while you stay on the dashboard</strong> (someone assigns you more work), the list can open automatically so the new items are visible.</li>
                 <li><strong>Completed today</strong> — Lists what was finished today; managers can sometimes undo a completion from the same day. Completion times are shown in the <a href="#company-time">company time zone</a> (not the web server’s clock).</li>
-                <li><strong>Live updates</strong> — While your PIN is active, the task board refreshes periodically so you see changes from teammates.</li>
+                <li><strong>Live updates</strong> — While your PIN is active, the task board refreshes periodically so you see changes from teammates. Recurring tasks (including weekly and infinity) get their “today” row automatically when you open the dashboard so they can appear even if they were first saved on a different weekday.</li>
                 <li><strong>PIN errors</strong> — If your PIN is wrong or invalid, a highlighted message appears above the keypad so it’s easy to notice; try again or ask an admin to confirm your PIN.</li>
             </ul>
             <h3>Weather alerts (when configured)</h3>
@@ -108,8 +111,9 @@
 
         <section class="card help-section" id="admin">
             <h2>Admin</h2>
-            <p>The Admin area is for people who configure the company. Tabs vary by role and plan.</p>
+            <p>The Admin area is for people who configure the company. You start on a <strong>home</strong> page of cards; each card opens its own page. Use <strong>Admin home</strong> in the header to return to the cards. What you see depends on your role and plan.</p>
             <ul>
+                <li><strong>Home</strong> — Quick entry to tasks, people, company settings, and (when your role and plan allow) <strong>task reports</strong>, <strong>support tickets</strong> for your organization, <strong>all companies’ tickets</strong>, <strong>view as tenant</strong>, and <strong>create company</strong> for owner/super admin.</li>
                 <li><strong>Tasks</strong> — Create and edit tasks: title, details, priority, time-of-day column, recurrence, optional assignee, infinity, and active/inactive. Edit can open <strong>inline under the task row</strong> so you don’t scroll back to the top. <strong>Delete</strong> soft-deletes a task: it disappears from the board and task list but past completions stay available for reporting.</li>
                 <li><strong>Time of day</strong> — Name and order the columns on the dashboard; you can deactivate a slot you no longer need. Task assignments use the slot saved on each task; the board keeps tasks aligned with your columns.</li>
                 <li><strong>Priorities</strong> — Colors and labels used on the board.</li>
@@ -125,13 +129,21 @@
 
         <section class="card help-section" id="reports">
             <h2>Reports</h2>
-            <p>When your plan includes <strong>Reports</strong> and your role is <strong>manager or higher</strong>, you can open the Reports page from the dashboard. You’ll see completions by date range: totals per day, per person, and a detail list. Historical data includes work from tasks that were later soft-deleted. Dates and completion times in the detail table use the <a href="#company-time">company time zone</a>.</p>
+            <p>When your plan includes <strong>Reports</strong> and your role is <strong>manager or higher</strong>, open <strong>Reports</strong> from the <strong>Admin home</strong> cards (or bookmark <code>/reports</code>). You’ll see completions by date range: totals per day, per person, and a detail list. Historical data includes work from tasks that were later soft-deleted. Dates and completion times in the detail table use the <a href="#company-time">company time zone</a>.</p>
+            <p>Use the <strong>Rows</strong> control to load more or fewer completions in the detail table (including “all” up to 50,000). <strong>Export CSV</strong> downloads the detail rows currently loaded (full task details in the file, not the shortened table preview).</p>
             <p>Default date ranges use <strong>company-local dates</strong> when your session includes the company time zone.</p>
         </section>
 
         <section class="card help-section" id="training">
             <h2>Training</h2>
             <p>If <strong>Employee training</strong> is enabled for your plan, users see a Training link. Managers assign training items or bundles (templates). Each assignment needs three manager sign-offs: <strong>See 1</strong>, <strong>Do 1</strong>, and <strong>Teach 1</strong>. The team view groups people in expandable sections so sign-offs aren’t cramped in one wide table.</p>
+        </section>
+
+        <section class="card help-section" id="support">
+            <h2>Support tickets</h2>
+            <p>After you sign in with your PIN, use <strong>Support &amp; tickets</strong> in the <a href="#company-time">site footer</a> to open your company’s support page: submit a problem report (title, message, optional image, and priority), see open items, and open a thread. Managers and admins can also reach the same page from the <strong>Admin home</strong> cards.</p>
+            <p><strong>Close</strong> a ticket when the issue is resolved (anyone in the company can close their company’s tickets, or owner/super admin can close any ticket). While you view a ticket, new replies appear automatically without refreshing the page.</p>
+            <p><strong>Owner</strong> and <strong>super admin</strong> use <strong>All companies’ tickets</strong> on <strong>Admin home</strong> to browse and respond to tickets from every company.</p>
         </section>
 
         <section class="card help-section" id="plans">
@@ -144,7 +156,7 @@
 
         <section class="card help-section" id="changelog">
             <h2>Changelog &amp; version</h2>
-            <p>The site footer shows the <strong>deployed app version</strong> (from the <code>VERSION</code> file at the project root, unless <code>APP_VERSION</code> is set in server configuration) and a link to the <a href="/changelog">changelog page</a>. That page lists release notes from the database, which are updated when new database migrations are applied on deploy.</p>
+            <p>The site footer shows the <strong>deployed app version</strong> (from the <code>VERSION</code> file at the project root, unless <code>APP_VERSION</code> is set in server configuration) and a link to the <a href="/changelog">changelog page</a>. That page lists release notes from the database, which are updated when new migrations run on deploy. Versions are ordered with <strong>newest first</strong> using proper version numbers (for example 1.0.11 after 1.0.10), not as plain text.</p>
         </section>
 
         <section class="card help-section" id="other">

@@ -599,8 +599,84 @@ textarea { width: 100%; border-radius: 10px; border: 1px solid #ccd5ef; padding:
 .admin-body .topbar { margin-bottom: 0; }
 .admin-main {
   padding: 16px 20px 40px;
-  max-width: 960px;
+  max-width: 1040px;
   margin: 0 auto;
+}
+.admin-hub {
+  margin-bottom: 4px;
+}
+.admin-hub-hero {
+  margin-bottom: 20px;
+}
+.admin-hub-hero-title {
+  margin: 0 0 8px;
+  font-size: 1.45rem;
+  letter-spacing: -0.02em;
+}
+.admin-hub-hero-lead {
+  margin: 0;
+  max-width: 52ch;
+  line-height: 1.5;
+}
+.admin-hub-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 700px) {
+  .admin-hub-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .admin-hub-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.admin-hub-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  margin-bottom: 0;
+}
+.admin-hub-card-title {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+.admin-hub-card-desc {
+  flex: 1;
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.admin-hub-go {
+  align-self: flex-start;
+}
+a.admin-hub-external {
+  align-self: flex-start;
+  display: inline-block;
+  text-decoration: none;
+  border: 1px solid #c8d4f0;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #3d4d8a;
+  background: #fafbff;
+  transition: background 0.15s, border-color 0.15s;
+}
+.theme-dark a.admin-hub-external {
+  color: #c8d4ff;
+  border-color: #35456b;
+  background: #1a2235;
+}
+a.admin-hub-external:hover {
+  background: #eef2ff;
+  border-color: #a8b8ec;
+}
+.theme-dark a.admin-hub-external:hover {
+  background: #252f4a;
+  border-color: #4a5d8c;
 }
 .admin-divider {
   border: none;
@@ -663,7 +739,7 @@ textarea { width: 100%; border-radius: 10px; border: 1px solid #ccd5ef; padding:
 .admin-footer-msg {
   margin-top: 20px;
   padding: 12px 14px;
-  max-width: 960px;
+  max-width: 1040px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -1802,4 +1878,290 @@ body.auth-page-register .auth-page-card {
   .auth-page-card {
     padding: 22px 18px 20px;
   }
+}
+
+/* Support tickets */
+.support-page .support-form textarea {
+  min-height: 120px;
+}
+.support-ticket-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+.support-ticket-row {
+  border-bottom: 1px solid #e8edff;
+  padding: 12px 0;
+}
+.theme-dark .support-ticket-row {
+  border-bottom-color: #2a3658;
+}
+.support-ticket-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+.support-ticket-link:hover .support-ticket-link-title {
+  color: #4e6ef2;
+}
+.support-ticket-link-title {
+  font-weight: 600;
+  font-size: 16px;
+}
+.support-ticket-link-meta {
+  font-size: 13px;
+  margin-top: 4px;
+}
+.support-priority-badge {
+  display: inline-block;
+  margin: 8px 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  background: #eef2ff;
+  color: #1b2240;
+}
+.theme-dark .support-priority-badge {
+  background: #2a3658;
+  color: #e8ecff;
+}
+.support-priority-urgent {
+  background: #fef2f2;
+  color: #991b1b;
+}
+.theme-dark .support-priority-urgent {
+  background: rgba(127, 29, 29, 0.35);
+  color: #fecaca;
+}
+.support-priority-high {
+  background: #fff7ed;
+  color: #9a3412;
+}
+.support-ticket-body {
+  white-space: pre-wrap;
+  margin: 12px 0;
+  line-height: 1.45;
+}
+.support-attachment-wrap {
+  margin: 12px 0;
+}
+.support-attachment-img {
+  max-width: 100%;
+  max-height: 420px;
+  border-radius: 10px;
+  border: 1px solid #dde4ff;
+}
+.theme-dark .support-attachment-img {
+  border-color: #35456b;
+}
+.support-ticket-times {
+  font-size: 14px;
+  margin-top: 12px;
+}
+.support-actions {
+  margin-top: 14px;
+}
+.support-messages-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+.support-message-item {
+  border: 1px solid #e8edff;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  background: #fafbff;
+}
+.theme-dark .support-message-item {
+  border-color: #2a3658;
+  background: #141b2e;
+}
+.support-message-head {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #3d4d8a;
+}
+.theme-dark .support-message-head {
+  color: #b4c4ff;
+}
+.support-message-body {
+  white-space: pre-wrap;
+  line-height: 1.45;
+  font-size: 15px;
+}
+
+/* US federal holiday seasonal backgrounds (±4 days; company-local date from API) */
+body[data-holiday-skin] {
+  background-attachment: fixed;
+}
+body[data-holiday-skin] .card {
+  background: rgba(255, 255, 255, 0.96);
+}
+body.theme-dark[data-holiday-skin] .card {
+  background: rgba(30, 41, 64, 0.96);
+}
+
+/* New Year's Day */
+body.theme-light[data-holiday-skin="new_year"] {
+  background:
+    radial-gradient(ellipse 100% 70% at 50% -15%, rgba(255, 215, 0, 0.35), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 85% 15%, rgba(200, 230, 255, 0.45), transparent 50%),
+    linear-gradient(180deg, #eef2ff 0%, #f5f7ff 45%, #f5f7ff 100%);
+}
+body.theme-dark[data-holiday-skin="new_year"] {
+  background:
+    radial-gradient(ellipse 100% 70% at 50% -15%, rgba(255, 200, 80, 0.22), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 85% 15%, rgba(80, 120, 200, 0.2), transparent 50%),
+    linear-gradient(180deg, #161d2e 0%, #121826 55%, #0e121c 100%);
+}
+
+/* MLK Day */
+body.theme-light[data-holiday-skin="mlk"] {
+  background:
+    radial-gradient(ellipse 90% 60% at 20% 10%, rgba(120, 80, 180, 0.2), transparent 50%),
+    radial-gradient(ellipse 80% 50% at 80% 30%, rgba(255, 200, 100, 0.18), transparent 52%),
+    linear-gradient(180deg, #f0f2ff 0%, #f5f7ff 100%);
+}
+body.theme-dark[data-holiday-skin="mlk"] {
+  background:
+    radial-gradient(ellipse 90% 60% at 20% 10%, rgba(140, 100, 200, 0.18), transparent 50%),
+    radial-gradient(ellipse 80% 50% at 80% 30%, rgba(200, 150, 80, 0.12), transparent 52%),
+    linear-gradient(180deg, #151a2a 0%, #121826 100%);
+}
+
+/* Presidents' Day */
+body.theme-light[data-holiday-skin="presidents"] {
+  background:
+    radial-gradient(ellipse 85% 55% at 50% -10%, rgba(180, 40, 40, 0.14), transparent 48%),
+    radial-gradient(ellipse 70% 45% at 10% 40%, rgba(40, 60, 140, 0.12), transparent 50%),
+    linear-gradient(180deg, #f2f6ff 0%, #f5f7ff 100%);
+}
+body.theme-dark[data-holiday-skin="presidents"] {
+  background:
+    radial-gradient(ellipse 85% 55% at 50% -10%, rgba(200, 80, 80, 0.15), transparent 48%),
+    radial-gradient(ellipse 70% 45% at 10% 40%, rgba(80, 100, 180, 0.14), transparent 50%),
+    linear-gradient(180deg, #141a28 0%, #121826 100%);
+}
+
+/* Memorial Day */
+body.theme-light[data-holiday-skin="memorial"] {
+  background:
+    radial-gradient(ellipse 100% 65% at 50% -12%, rgba(200, 40, 40, 0.16), transparent 52%),
+    radial-gradient(ellipse 55% 40% at 75% 25%, rgba(30, 80, 160, 0.14), transparent 48%),
+    linear-gradient(180deg, #f3f6ff 0%, #f5f7ff 100%);
+}
+body.theme-dark[data-holiday-skin="memorial"] {
+  background:
+    radial-gradient(ellipse 100% 65% at 50% -12%, rgba(200, 60, 60, 0.18), transparent 52%),
+    radial-gradient(ellipse 55% 40% at 75% 25%, rgba(60, 100, 180, 0.16), transparent 48%),
+    linear-gradient(180deg, #161c2c 0%, #121826 100%);
+}
+
+/* Juneteenth */
+body.theme-light[data-holiday-skin="juneteenth"] {
+  background:
+    radial-gradient(ellipse 95% 60% at 30% 5%, rgba(220, 40, 120, 0.16), transparent 50%),
+    radial-gradient(ellipse 70% 50% at 85% 35%, rgba(40, 160, 100, 0.14), transparent 48%),
+    radial-gradient(ellipse 50% 35% at 15% 70%, rgba(240, 200, 60, 0.12), transparent 45%),
+    linear-gradient(180deg, #fff5f8 0%, #f5f7ff 100%);
+}
+body.theme-dark[data-holiday-skin="juneteenth"] {
+  background:
+    radial-gradient(ellipse 95% 60% at 30% 5%, rgba(200, 60, 130, 0.2), transparent 50%),
+    radial-gradient(ellipse 70% 50% at 85% 35%, rgba(50, 160, 110, 0.16), transparent 48%),
+    radial-gradient(ellipse 50% 35% at 15% 70%, rgba(200, 170, 60, 0.12), transparent 45%),
+    linear-gradient(180deg, #1a1520 0%, #121826 100%);
+}
+
+/* Independence Day */
+body.theme-light[data-holiday-skin="independence"] {
+  background:
+    radial-gradient(ellipse 90% 55% at 15% 15%, rgba(40, 80, 200, 0.18), transparent 48%),
+    radial-gradient(ellipse 85% 50% at 85% 20%, rgba(200, 50, 50, 0.2), transparent 50%),
+    radial-gradient(ellipse 60% 40% at 50% 80%, rgba(240, 220, 100, 0.14), transparent 45%),
+    linear-gradient(180deg, #eef4ff 0%, #f5f7ff 100%);
+}
+body.theme-dark[data-holiday-skin="independence"] {
+  background:
+    radial-gradient(ellipse 90% 55% at 15% 15%, rgba(80, 120, 220, 0.22), transparent 48%),
+    radial-gradient(ellipse 85% 50% at 85% 20%, rgba(220, 70, 70, 0.2), transparent 50%),
+    radial-gradient(ellipse 60% 40% at 50% 80%, rgba(220, 200, 80, 0.1), transparent 45%),
+    linear-gradient(180deg, #141a2a 0%, #121826 100%);
+}
+
+/* Labor Day */
+body.theme-light[data-holiday-skin="labor"] {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -8%, rgba(255, 160, 60, 0.2), transparent 48%),
+    radial-gradient(ellipse 70% 45% at 20% 60%, rgba(60, 120, 200, 0.12), transparent 50%),
+    linear-gradient(180deg, #fff8f0 0%, #f5f7ff 100%);
+}
+body.theme-dark[data-holiday-skin="labor"] {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -8%, rgba(220, 140, 60, 0.18), transparent 48%),
+    radial-gradient(ellipse 70% 45% at 20% 60%, rgba(80, 120, 200, 0.14), transparent 50%),
+    linear-gradient(180deg, #1c1814 0%, #121826 100%);
+}
+
+/* Columbus Day */
+body.theme-light[data-holiday-skin="columbus"] {
+  background:
+    radial-gradient(ellipse 100% 60% at 70% -5%, rgba(40, 140, 200, 0.16), transparent 52%),
+    radial-gradient(ellipse 55% 40% at 15% 40%, rgba(200, 160, 80, 0.14), transparent 48%),
+    linear-gradient(180deg, #f0f8ff 0%, #f5f7ff 100%);
+}
+body.theme-dark[data-holiday-skin="columbus"] {
+  background:
+    radial-gradient(ellipse 100% 60% at 70% -5%, rgba(60, 140, 200, 0.2), transparent 52%),
+    radial-gradient(ellipse 55% 40% at 15% 40%, rgba(180, 140, 70, 0.12), transparent 48%),
+    linear-gradient(180deg, #131c28 0%, #121826 100%);
+}
+
+/* Veterans Day */
+body.theme-light[data-holiday-skin="veterans"] {
+  background:
+    radial-gradient(ellipse 95% 58% at 50% -10%, rgba(180, 40, 40, 0.14), transparent 50%),
+    radial-gradient(ellipse 70% 45% at 10% 50%, rgba(40, 60, 120, 0.14), transparent 48%),
+    linear-gradient(180deg, #f4f6ff 0%, #f5f7ff 100%);
+}
+body.theme-dark[data-holiday-skin="veterans"] {
+  background:
+    radial-gradient(ellipse 95% 58% at 50% -10%, rgba(200, 70, 70, 0.18), transparent 50%),
+    radial-gradient(ellipse 70% 45% at 10% 50%, rgba(70, 90, 160, 0.18), transparent 48%),
+    linear-gradient(180deg, #161a26 0%, #121826 100%);
+}
+
+/* Thanksgiving */
+body.theme-light[data-holiday-skin="thanksgiving"] {
+  background:
+    radial-gradient(ellipse 90% 55% at 50% -12%, rgba(200, 120, 40, 0.22), transparent 50%),
+    radial-gradient(ellipse 65% 45% at 85% 35%, rgba(120, 80, 40, 0.12), transparent 48%),
+    radial-gradient(ellipse 50% 35% at 15% 75%, rgba(220, 200, 120, 0.14), transparent 45%),
+    linear-gradient(180deg, #fff6ec 0%, #f5f7ff 100%);
+}
+body.theme-dark[data-holiday-skin="thanksgiving"] {
+  background:
+    radial-gradient(ellipse 90% 55% at 50% -12%, rgba(220, 140, 60, 0.16), transparent 50%),
+    radial-gradient(ellipse 65% 45% at 85% 35%, rgba(140, 100, 50, 0.12), transparent 48%),
+    radial-gradient(ellipse 50% 35% at 15% 75%, rgba(200, 180, 100, 0.08), transparent 45%),
+    linear-gradient(180deg, #1c1812 0%, #121826 100%);
+}
+
+/* Christmas */
+body.theme-light[data-holiday-skin="christmas"] {
+  background:
+    radial-gradient(ellipse 95% 60% at 50% -15%, rgba(180, 40, 50, 0.18), transparent 52%),
+    radial-gradient(ellipse 55% 40% at 20% 30%, rgba(40, 120, 70, 0.16), transparent 48%),
+    radial-gradient(ellipse 45% 35% at 90% 60%, rgba(240, 220, 100, 0.12), transparent 45%),
+    linear-gradient(180deg, #f0fff4 0%, #f5f7ff 100%);
+}
+body.theme-dark[data-holiday-skin="christmas"] {
+  background:
+    radial-gradient(ellipse 95% 60% at 50% -15%, rgba(200, 60, 70, 0.2), transparent 52%),
+    radial-gradient(ellipse 55% 40% at 20% 30%, rgba(50, 140, 90, 0.18), transparent 48%),
+    radial-gradient(ellipse 45% 35% at 90% 60%, rgba(200, 180, 80, 0.1), transparent 45%),
+    linear-gradient(180deg, #141e1a 0%, #121826 100%);
 }

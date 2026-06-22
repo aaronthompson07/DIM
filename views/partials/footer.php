@@ -27,6 +27,14 @@ if (!empty($_SESSION['company_authenticated'])) {
         <a href="/changelog">Changelog</a>
         <span class="site-footer-sep" aria-hidden="true">·</span>
         <a href="/help">Help &amp; how it works</a>
+        <span class="site-footer-sep" aria-hidden="true">·</span>
+        <a href="/food-calculator.php" class="footer-popup-link" data-popup-title="Pet Feeding Calculator">Pet feeding calculator</a>
+        <?php if (!empty($_SESSION['company_authenticated'])) {
+            $footerPinUser = !empty($_SESSION['user_id']);
+        ?>
+        <span class="site-footer-sep<?= $footerPinUser ? '' : ' hidden' ?>" aria-hidden="true" id="footer-support-sep">·</span>
+        <a href="/support" id="footer-support-tickets" class="<?= $footerPinUser ? '' : 'hidden' ?>">Support &amp; tickets</a>
+        <?php } ?>
         <?php if ($companyTzForFooter !== null) { ?>
         <span class="site-footer-sep" aria-hidden="true">·</span>
         <span id="footer-company-time" class="footer-company-clock muted" title="Time in your company timezone"></span>
@@ -38,6 +46,22 @@ if (!empty($_SESSION['company_authenticated'])) {
         <?php } ?>
     </p>
 </footer>
+<script>
+(function () {
+    document.querySelectorAll('a.footer-popup-link').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            var name = (link.dataset.popupTitle || link.textContent || 'DoItMeow').trim().replace(/\s+/g, '_');
+            var w = 1020;
+            var h = 820;
+            var left = Math.max(0, Math.round((window.screen.availWidth - w) / 2));
+            var top = Math.max(0, Math.round((window.screen.availHeight - h) / 2));
+            var features = 'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top + ',scrollbars=yes,resizable=yes';
+            window.open(link.href, name, features);
+        });
+    });
+})();
+</script>
 <?php
 $arrowchatFooterSrc = null;
 if (!empty($_SESSION['company_authenticated'])) {

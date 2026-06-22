@@ -23,7 +23,6 @@
             Deployed version: <strong>v<?= htmlspecialchars((string) ($appVersion ?? ''), ENT_QUOTES, 'UTF-8') ?></strong>
             (from the <code>VERSION</code> file in the project root; optional <code>APP_VERSION</code> in <code>.env</code> overrides it).
         </p>
-        <p class="muted">Release notes below are loaded from the <code>changelog_entries</code> table (filled automatically when migrations run after each deploy).</p>
     </section>
 
     <article class="changelog">

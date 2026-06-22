@@ -101,10 +101,34 @@
     setupFooterWeather();
   }
 
+  /** After PIN sign-in without a full page reload, show the Support link in the site footer. */
+  function applyFooterSupportLink(me) {
+    const link = document.getElementById("footer-support-tickets");
+    const sep = document.getElementById("footer-support-sep");
+    if (!link) return;
+    const show = Boolean(me?.ok && me.company_authenticated && me.user);
+    link.classList.toggle("hidden", !show);
+    if (sep) sep.classList.toggle("hidden", !show);
+  }
+
   function applyResolvedTheme(theme) {
     const t = theme === "dark" ? "dark" : "light";
     document.body.classList.remove("theme-light", "theme-dark");
     document.body.classList.add(t === "dark" ? "theme-dark" : "theme-light");
+  }
+
+  /** Sets body[data-holiday-skin] from server (US federal holiday ±4 days, company-local “today”). */
+  async function applyHolidaySkinFromApi() {
+    try {
+      const s = await get("/api/holidays/season");
+      if (s && s.ok && s.skin && typeof s.skin === "string") {
+        document.body.dataset.holidaySkin = s.skin;
+      } else {
+        delete document.body.dataset.holidaySkin;
+      }
+    } catch {
+      delete document.body.dataset.holidaySkin;
+    }
   }
 
   function post(url, data) {
@@ -113,6 +137,25 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data || {}),
     }).then((r) => r.json());
+  }
+
+  function postMultipart(url, formData) {
+    return fetch(url, { method: "POST", body: formData }).then((r) => r.json());
+  }
+
+  function formatSupportDuration(totalSeconds) {
+    const s = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    if (d > 0) return `${d}d ${h}h`;
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+  }
+
+  function supportPriorityLabel(p) {
+    const map = { low: "Low", normal: "Normal", high: "High", urgent: "Urgent" };
+    return map[p] || p;
   }
 
   function get(url) {
@@ -377,7 +420,6 @@
     const completedModal = document.getElementById("completed-modal");
     const assignedTasksList = document.getElementById("assigned-tasks-list");
     const assignedModal = document.getElementById("assigned-modal");
-    const reportsLinkWrap = document.getElementById("reports-link-wrap");
     const addTaskBtn = document.getElementById("add-task-btn");
     const dashTaskModal = document.getElementById("dash-task-modal");
     const dashTaskForm = document.getElementById("dash-task-form");
@@ -397,6 +439,9 @@
     let hasUser = false;
     let lastMe = null;
     let lastBoardLimited = false;
+    /** Last seen count from `/api/tasks/today-board` (`assigned_to_me_open`); used to open the modal when new work is assigned while the dashboard is open. */
+    let prevAssignedToMeOpen = null;
+    let refreshInFlight = false;
 
     function updateDashboardTaskButtons() {
       const can = Boolean(hasUser && lastMe?.user?.can_edit_tasks);
@@ -517,12 +562,6 @@
         trainingWrap.classList.toggle(
           "hidden",
           !(me.user && me.integrations?.features?.training_employee)
-        );
-      }
-      if (reportsLinkWrap) {
-        reportsLinkWrap.classList.toggle(
-          "hidden",
-          !(me.user && me.integrations?.features?.tasks_reports && me.can_view_reports)
         );
       }
       if (!me.user || !me.integrations?.show_google_ads) {
@@ -662,6 +701,7 @@
       applyTopbarBrand(me);
       updateCompanyTimezoneFromMe(me);
       refreshFooterBar();
+      applyFooterSupportLink(me);
       if (me.resolved_theme) {
         applyResolvedTheme(me.resolved_theme);
       }
@@ -799,6 +839,9 @@
 
     async function refresh() {
       if (!hasUser) return;
+      if (refreshInFlight) return;
+      refreshInFlight = true;
+      try {
       const board = await get("/api/tasks/today-board");
       if (!board.ok) return;
       const winScrollY =
@@ -821,6 +864,18 @@
       setCompletedTodayButton(board.completed);
       setAssignedToMeButton(board.assigned_to_me_open);
 
+      const assignedOpen = Number(board.assigned_to_me_open) || 0;
+      if (
+        prevAssignedToMeOpen !== null &&
+        assignedOpen > prevAssignedToMeOpen &&
+        assignedOpen > 0
+      ) {
+        void refreshAssignedToMeModal().then(() => {
+          assignedModal?.classList.remove("hidden");
+        });
+      }
+      prevAssignedToMeOpen = assignedOpen;
+
       const openBySlotId = {};
       (board.slot_open_counts || []).forEach((c) => {
         openBySlotId[String(c.id)] = Number(c.open) || 0;
@@ -830,35 +885,6 @@
       taskBoard.innerHTML = "";
       const slots = board.slots || [];
       const tasks = board.tasks || [];
-
-      /* If every time-of-day column is inactive/removed, API returns no slots — but tasks can still
-         exist (e.g. time_slot_id cleared). Do not hide tasks; show them in one column. */
-      if (!slots.length) {
-        if (!tasks.length) {
-          taskBoard.innerHTML =
-            "<p class='muted'>No time-of-day columns yet. An admin can add them under Admin → Time of day.</p>";
-          return;
-        }
-        const col = document.createElement("div");
-        col.className = "task-board-column task-board-column-other";
-        const h = document.createElement("h3");
-        h.className = "task-board-heading";
-        h.textContent = `Today's tasks (${tasks.length})`;
-        const ul = document.createElement("ul");
-        ul.className = "task-board-list";
-        tasks.forEach((t) => appendTask(ul, t));
-        const hint = document.createElement("p");
-        hint.className = "muted board-fallback-hint";
-        hint.style.marginTop = "10px";
-        hint.style.fontSize = "13px";
-        hint.textContent =
-          "No active time-of-day columns — tasks are grouped here. Add or turn on a column under Admin → Time of day to split the board.";
-        col.appendChild(h);
-        col.appendChild(ul);
-        col.appendChild(hint);
-        taskBoard.appendChild(col);
-        return;
-      }
 
       function appendTask(ul, task) {
         const li = document.createElement("li");
@@ -928,6 +954,35 @@
         ul.appendChild(li);
       }
 
+      /* If every time-of-day column is inactive/removed, API returns no slots — but tasks can still
+         exist (e.g. time_slot_id cleared). Do not hide tasks; show them in one column. */
+      if (!slots.length) {
+        if (!tasks.length) {
+          taskBoard.innerHTML =
+            "<p class='muted'>No time-of-day columns yet. An admin can add them under Admin → Time of day.</p>";
+          return;
+        }
+        const col = document.createElement("div");
+        col.className = "task-board-column task-board-column-other";
+        const h = document.createElement("h3");
+        h.className = "task-board-heading";
+        h.textContent = `Today's tasks (${tasks.length})`;
+        const ul = document.createElement("ul");
+        ul.className = "task-board-list";
+        tasks.forEach((t) => appendTask(ul, t));
+        const hint = document.createElement("p");
+        hint.className = "muted board-fallback-hint";
+        hint.style.marginTop = "10px";
+        hint.style.fontSize = "13px";
+        hint.textContent =
+          "No active time-of-day columns — tasks are grouped here. Add or turn on a column under Admin → Time of day to split the board.";
+        col.appendChild(h);
+        col.appendChild(ul);
+        col.appendChild(hint);
+        taskBoard.appendChild(col);
+        return;
+      }
+
       slots.forEach((slot) => {
         const col = document.createElement("div");
         col.className = "task-board-column";
@@ -964,6 +1019,9 @@
       }
     } finally {
       restoreWindowScroll();
+    }
+    } finally {
+      refreshInFlight = false;
     }
     }
 
@@ -1180,21 +1238,214 @@
     });
   }
 
+  function setupAdminImpersonatePage() {
+    const impersonateSelect = document.getElementById("impersonate-tenant-select");
+    const impersonationStatus = document.getElementById("impersonation-status");
+    const msg = document.getElementById("admin-platform-message");
+
+    function setPlatformMsg(text, tone = "info") {
+      if (!msg) return;
+      msg.textContent = text || "";
+      msg.classList.remove("user-feedback--error", "user-feedback--success", "user-feedback--info", "muted");
+      msg.classList.add("admin-footer-msg", "user-feedback");
+      if (!text) return;
+      const cls =
+        tone === "error"
+          ? "user-feedback--error"
+          : tone === "success"
+            ? "user-feedback--success"
+            : "user-feedback--info";
+      msg.classList.add(cls);
+    }
+
+    function setPlatformOk(ok, okText, errFallback, serverMsg) {
+      const err = String(serverMsg || "").trim() || errFallback;
+      setPlatformMsg(ok ? okText : err, ok ? "success" : "error");
+    }
+
+    function applyImpStatus(config) {
+      if (!impersonationStatus || !config) return;
+      const home = config.home_tenant_id;
+      const eff = config.effective_tenant_id;
+      if (config.impersonate_tenant_id) {
+        impersonationStatus.textContent = `Viewing tenant #${eff} (your company is #${home}).`;
+      } else {
+        impersonationStatus.textContent = `Active tenant data: #${eff}.`;
+      }
+    }
+
+    async function loadTenants() {
+      if (!impersonateSelect) return;
+      const res = await get("/api/admin/tenants");
+      if (!res.ok) return;
+      impersonateSelect.innerHTML = "";
+      (res.tenants || []).forEach((t) => {
+        const opt = document.createElement("option");
+        opt.value = String(t.id);
+        opt.textContent = `${t.name} (${t.company_username})${Number(t.is_demo) ? " [demo]" : ""}`;
+        impersonateSelect.appendChild(opt);
+      });
+    }
+
+    async function init() {
+      const me = await get("/api/auth/me");
+      if (!me.ok || !me.company_authenticated) {
+        window.location.href = "/login";
+        return;
+      }
+      if (!me.user || !["owner", "super_admin"].includes(me.user.role)) {
+        window.location.href = "/admin";
+        return;
+      }
+      if (me.resolved_theme) applyResolvedTheme(me.resolved_theme);
+      updateCompanyTimezoneFromMe(me);
+      refreshFooterBar();
+      applyFooterSupportLink(me);
+      const config = await get("/api/admin/config");
+      if (!config.ok || !config.can_impersonate) {
+        window.location.href = "/admin";
+        return;
+      }
+      await loadTenants();
+      if (impersonateSelect && config.effective_tenant_id) {
+        impersonateSelect.value = String(config.effective_tenant_id);
+      }
+      applyImpStatus(config);
+      const limited = document.querySelector("main.admin-main .banner.warning") !== null;
+      if (limited) {
+        document.getElementById("impersonate-go")?.setAttribute("disabled", "disabled");
+        document.getElementById("impersonate-clear")?.setAttribute("disabled", "disabled");
+      }
+    }
+
+    init();
+
+    document.getElementById("impersonate-go")?.addEventListener("click", async () => {
+      const tenantId = Number(impersonateSelect?.value || 0);
+      const result = await post("/api/admin/impersonate", { tenant_id: tenantId });
+      setPlatformOk(result.ok, "Now viewing selected tenant.", "Impersonation failed.", result.message);
+      if (result.ok) {
+        const config = await get("/api/admin/config");
+        if (config.ok) applyImpStatus(config);
+      }
+    });
+
+    document.getElementById("impersonate-clear")?.addEventListener("click", async () => {
+      const result = await post("/api/admin/impersonate-clear");
+      setPlatformOk(result.ok, "Stopped viewing other tenant.", "Clear failed.", result.message);
+      if (result.ok) {
+        const config = await get("/api/admin/config");
+        if (config.ok) applyImpStatus(config);
+      }
+    });
+
+    document.getElementById("admin-platform-theme-toggle")?.addEventListener("click", async () => {
+      const next = document.body.classList.contains("theme-dark") ? "light" : "dark";
+      const r = await post("/api/auth/theme-preference", { theme: next });
+      if (r.ok && r.resolved_theme) applyResolvedTheme(r.resolved_theme);
+      else applyResolvedTheme(next);
+    });
+  }
+
+  function setupAdminCreateCompanyPage() {
+    const createTenantForm = document.getElementById("create-tenant-form");
+    const msg = document.getElementById("admin-platform-message");
+
+    function setPlatformMsg(text, tone = "info") {
+      if (!msg) return;
+      msg.textContent = text || "";
+      msg.classList.remove("user-feedback--error", "user-feedback--success", "user-feedback--info", "muted");
+      msg.classList.add("admin-footer-msg", "user-feedback");
+      if (!text) return;
+      const cls =
+        tone === "error"
+          ? "user-feedback--error"
+          : tone === "success"
+            ? "user-feedback--success"
+            : "user-feedback--info";
+      msg.classList.add(cls);
+    }
+
+    function setPlatformOk(ok, okText, errFallback, serverMsg) {
+      const err = String(serverMsg || "").trim() || errFallback;
+      setPlatformMsg(ok ? okText : err, ok ? "success" : "error");
+    }
+
+    (async () => {
+      const me = await get("/api/auth/me");
+      if (!me.ok || !me.company_authenticated) {
+        window.location.href = "/login";
+        return;
+      }
+      if (!me.user || !["owner", "super_admin"].includes(me.user.role)) {
+        window.location.href = "/admin";
+        return;
+      }
+      const config = await get("/api/admin/config");
+      if (!config.ok || !config.can_impersonate) {
+        window.location.href = "/admin";
+        return;
+      }
+      if (me.resolved_theme) applyResolvedTheme(me.resolved_theme);
+      updateCompanyTimezoneFromMe(me);
+      refreshFooterBar();
+      applyFooterSupportLink(me);
+    })();
+
+    createTenantForm?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const limited = document.querySelector("main.admin-main .banner.warning") !== null;
+      if (limited) return;
+      const result = await post("/api/admin/tenants/create", {
+        company_name: document.getElementById("ct-name")?.value?.trim() || "",
+        company_username: document.getElementById("ct-username")?.value?.trim().toLowerCase() || "",
+        company_password: document.getElementById("ct-password")?.value || "",
+        owner_email: document.getElementById("ct-email")?.value?.trim() || "",
+        admin_display_name: document.getElementById("ct-admin-name")?.value?.trim() || "",
+        admin_pin: document.getElementById("ct-admin-pin")?.value || "",
+        timezone: document.getElementById("ct-tz")?.value?.trim() || "UTC",
+      });
+      setPlatformOk(
+        result.ok,
+        `Company created (#${result.tenant_id}). They can sign in with the new company login.`,
+        "Create failed.",
+        result.message
+      );
+      if (result.ok) {
+        createTenantForm.reset();
+        const tz = document.getElementById("ct-tz");
+        if (tz) tz.value = "UTC";
+      }
+    });
+
+    document.getElementById("admin-platform-theme-toggle")?.addEventListener("click", async () => {
+      const next = document.body.classList.contains("theme-dark") ? "light" : "dark";
+      const r = await post("/api/auth/theme-preference", { theme: next });
+      if (r.ok && r.resolved_theme) applyResolvedTheme(r.resolved_theme);
+      else applyResolvedTheme(next);
+    });
+  }
+
   function setupAdmin() {
-    if (path !== "/admin") return;
+    const adminPathMatch = path.match(/^\/admin(?:\/([a-z-]+))?$/);
+    if (!adminPathMatch) return;
+
+    if (adminPathMatch[1] === "impersonate") {
+      setupAdminImpersonatePage();
+      return;
+    }
+    if (adminPathMatch[1] === "create-company") {
+      setupAdminCreateCompanyPage();
+      return;
+    }
+
+    const adminSectionKey = adminPathMatch[1] ?? "hub";
 
     const message = document.getElementById("admin-message");
-    const tabsRoot = document.getElementById("admin-tabs");
     const companyProfileForm = document.getElementById("company-profile-form");
     const coPlatformFields = document.getElementById("co-platform-fields");
     const matrixWrap = document.getElementById("feature-matrix-wrap");
     const saveMatrixBtn = document.getElementById("save-feature-matrix");
-    const impersonationCard = document.getElementById("impersonation-card");
-    const impersonateSelect = document.getElementById("impersonate-tenant-select");
-    const impersonateGo = document.getElementById("impersonate-go");
-    const impersonateClear = document.getElementById("impersonate-clear");
-    const impersonationStatus = document.getElementById("impersonation-status");
-    const createTenantForm = document.getElementById("create-tenant-form");
     const adminThemeToggle = document.getElementById("admin-theme-toggle");
     const taskForm = document.getElementById("task-form");
     const taskEditId = document.getElementById("task-edit-id");
@@ -1273,21 +1524,26 @@
     let trTplsCache = [];
     let trTemplateItemOrder = [];
 
-    function showPanel(key) {
-      document.querySelectorAll(".admin-panel").forEach((p) => {
-        p.classList.toggle("hidden", p.dataset.panel !== key);
-      });
-      document.querySelectorAll(".admin-tab").forEach((b) => {
-        b.classList.toggle("active", b.dataset.tab === key);
-      });
-      if (key === "logs" && currentConfig?.can_view_audit_logs && !auditLogsLoaded) {
-        auditLogsLoaded = true;
-        loadAuditLogsTable();
-      }
-      if (key === "training" && currentConfig?.can_manage_training && !trainingAdminLoaded) {
-        trainingAdminLoaded = true;
-        loadTrainingAdminPanel();
-      }
+    function wireAdminHubVisibility(config) {
+      const set = (id, show) => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle("hidden", !show);
+      };
+      set("hub-card-tasks", true);
+      set("hub-card-users", true);
+      set("hub-card-support", true);
+      set("hub-card-slots", Boolean(config.can_manage_time_slots));
+      set("hub-card-priorities", Boolean(config.can_manage_priorities));
+      set("hub-card-messages", Boolean(config.can_manage_system_messages));
+      set("hub-card-logs", Boolean(config.can_view_audit_logs));
+      set("hub-card-training", Boolean(config.can_manage_training));
+      set("hub-card-company", Boolean(config.can_manage_tenant));
+      set("hub-card-plans", Boolean(config.can_manage_plans));
+      set("hub-card-matrix", Boolean(config.can_manage_matrix));
+      const reportsOk =
+        Boolean(config.integrations?.features?.tasks_reports) && Boolean(config.can_view_reports);
+      set("hub-card-reports", reportsOk);
+      set("hub-card-support-all", Boolean(config.can_view_all_support));
     }
 
     async function loadAuditLogsTable() {
@@ -1550,33 +1806,6 @@
       await fillTrainingAssignUsers();
       syncTemplateBuilderFromCache();
       renderTemplateOrderList();
-    }
-
-    function buildTabs(config, actorRole) {
-      if (!tabsRoot) return;
-      tabsRoot.innerHTML = "";
-      auditLogsLoaded = false;
-      trainingAdminLoaded = false;
-      const tabs = [{ key: "tasks", label: "Tasks" }];
-      if (config.can_manage_time_slots) tabs.push({ key: "slots", label: "Time of day" });
-      if (config.can_manage_priorities) tabs.push({ key: "priorities", label: "Priorities" });
-      if (config.can_manage_system_messages) tabs.push({ key: "messages", label: "Messages" });
-      tabs.push({ key: "users", label: "People" });
-      if (config.can_view_audit_logs) tabs.push({ key: "logs", label: "Activity logs" });
-      if (config.can_manage_training) tabs.push({ key: "training", label: "Training" });
-      if (config.can_manage_tenant) tabs.push({ key: "company", label: "Company" });
-      if (config.can_manage_plans) tabs.push({ key: "plans", label: "Billing plans" });
-      if (config.can_manage_matrix) tabs.push({ key: "matrix", label: "Feature matrix" });
-      tabs.forEach((t, i) => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "admin-tab" + (i === 0 ? " active" : "");
-        btn.dataset.tab = t.key;
-        btn.textContent = t.label;
-        btn.addEventListener("click", () => showPanel(t.key));
-        tabsRoot.appendChild(btn);
-      });
-      showPanel("tasks");
     }
 
     function buildMatrix(config) {
@@ -2118,29 +2347,6 @@
       });
     }
 
-    function updateImpersonationStatus(config) {
-      if (!impersonationStatus || !config) return;
-      const home = config.home_tenant_id;
-      const eff = config.effective_tenant_id;
-      if (config.impersonate_tenant_id) {
-        impersonationStatus.textContent = `Viewing tenant #${eff} (your company is #${home}).`;
-      } else {
-        impersonationStatus.textContent = `Active tenant data: #${eff}.`;
-      }
-    }
-
-    async function loadTenantsForImpersonation() {
-      const res = await get("/api/admin/tenants");
-      if (!res.ok) return;
-      impersonateSelect.innerHTML = "";
-      res.tenants.forEach((t) => {
-        const opt = document.createElement("option");
-        opt.value = String(t.id);
-        opt.textContent = `${t.name} (${t.company_username})${Number(t.is_demo) ? " [demo]" : ""}`;
-        impersonateSelect.appendChild(opt);
-      });
-    }
-
     async function loadConfig() {
       const me = await get("/api/auth/me");
       if (!me.ok || !me.company_authenticated) {
@@ -2162,6 +2368,7 @@
       }
       updateCompanyTimezoneFromMe(me);
       refreshFooterBar();
+      applyFooterSupportLink(me);
 
       const config = await get("/api/admin/config");
       if (!config.ok) {
@@ -2186,7 +2393,15 @@
         systemMessageGlobal.checked = false;
         systemMessageGlobal.disabled = false;
       }
-      buildTabs(config, currentActorRole);
+      wireAdminHubVisibility(config);
+      if (adminSectionKey === "logs" && config.can_view_audit_logs && !auditLogsLoaded) {
+        auditLogsLoaded = true;
+        loadAuditLogsTable();
+      }
+      if (adminSectionKey === "training" && config.can_manage_training && !trainingAdminLoaded) {
+        trainingAdminLoaded = true;
+        loadTrainingAdminPanel();
+      }
 
       const tn = config.tenant;
       if (tn && companyProfileForm) {
@@ -2225,15 +2440,6 @@
         if (coPlatformFields) {
           coPlatformFields.classList.toggle("hidden", !config.can_manage_platform_tenant);
         }
-      }
-
-      if (config.can_impersonate && impersonationCard) {
-        impersonationCard.classList.remove("hidden");
-        await loadTenantsForImpersonation();
-        if (impersonateSelect && config.effective_tenant_id) {
-          impersonateSelect.value = String(config.effective_tenant_id);
-        }
-        updateImpersonationStatus(config);
       }
 
       await loadTaskSlotOptions(true);
@@ -2362,7 +2568,7 @@
       });
       setMessageOk(
         result.ok,
-        "Plan created. Configure features on the Feature matrix tab.",
+        "Plan created. Configure features under Admin → Feature matrix.",
         "Failed.",
         result.message
       );
@@ -2427,44 +2633,6 @@
         systemMessageGlobal.disabled = true;
       } else {
         systemMessageGlobal.disabled = false;
-      }
-    });
-
-    impersonateGo?.addEventListener("click", async () => {
-      const tenantId = Number(impersonateSelect.value || 0);
-      const result = await post("/api/admin/impersonate", { tenant_id: tenantId });
-      setMessageOk(result.ok, "Now viewing selected tenant.", "Impersonation failed.", result.message);
-      if (result.ok) await loadConfig();
-    });
-
-    impersonateClear?.addEventListener("click", async () => {
-      const result = await post("/api/admin/impersonate-clear");
-      setMessageOk(result.ok, "Stopped viewing other tenant.", "Clear failed.", result.message);
-      if (result.ok) await loadConfig();
-    });
-
-    createTenantForm?.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const result = await post("/api/admin/tenants/create", {
-        company_name: document.getElementById("ct-name")?.value?.trim() || "",
-        company_username: document.getElementById("ct-username")?.value?.trim().toLowerCase() || "",
-        company_password: document.getElementById("ct-password")?.value || "",
-        owner_email: document.getElementById("ct-email")?.value?.trim() || "",
-        admin_display_name: document.getElementById("ct-admin-name")?.value?.trim() || "",
-        admin_pin: document.getElementById("ct-admin-pin")?.value || "",
-        timezone: document.getElementById("ct-tz")?.value?.trim() || "UTC",
-      });
-      setMessageOk(
-        result.ok,
-        `Company created (#${result.tenant_id}). They can sign in with the new company login.`,
-        "Create failed.",
-        result.message
-      );
-      if (result.ok) {
-        createTenantForm.reset();
-        const tz = document.getElementById("ct-tz");
-        if (tz) tz.value = "UTC";
-        await loadTenantsForImpersonation();
       }
     });
 
@@ -2600,6 +2768,36 @@
     const summaryEl = document.getElementById("reports-summary");
     const startIn = document.getElementById("reports-start");
     const endIn = document.getElementById("reports-end");
+    const detailLimitSel = document.getElementById("reports-detail-limit");
+
+    let lastReportsData = null;
+
+    function csvEscapeCell(val) {
+      const s = val == null ? "" : String(val);
+      if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    }
+
+    function downloadReportsDetailCsv(data) {
+      const rows = data.completed_tasks_detail || [];
+      const header = ["When", "Task", "By", "Details"];
+      const lines = [header.map(csvEscapeCell).join(",")];
+      rows.forEach((row) => {
+        const when = row.completed_at != null ? formatCompanyDateTime(row.completed_at) : "";
+        const task = row.title != null ? String(row.title) : "";
+        const by = row.completed_by != null ? String(row.completed_by) : "";
+        const det = row.details != null ? String(row.details) : "";
+        lines.push([when, task, by, det].map(csvEscapeCell).join(","));
+      });
+      const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      const fnStart = data.start_date || "start";
+      const fnEnd = data.end_date || "end";
+      a.href = URL.createObjectURL(blob);
+      a.download = `report-completions-${fnStart}-to-${fnEnd}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
 
     function localYMD(d) {
       const y = d.getFullYear();
@@ -2642,6 +2840,7 @@
     }
 
     function renderTables(data) {
+      lastReportsData = data;
       if (errEl) {
         errEl.textContent = "";
         errEl.classList.add("hidden");
@@ -2728,12 +2927,23 @@
           tbodyDetail.appendChild(tr);
         }
       }
+      const noteEl = document.getElementById("reports-detail-note");
+      if (noteEl && data.detail_rows_returned != null) {
+        const loaded = data.detail_rows_returned;
+        let msg = `Newest first. ${loaded.toLocaleString()} row(s) loaded.`;
+        if (data.detail_truncated && data.completed_total != null) {
+          msg += ` ${data.completed_total.toLocaleString()} completion(s) in this range; choose a higher row count or All to load more (up to 50,000), or use Export CSV.`;
+        }
+        noteEl.textContent = msg;
+      }
     }
 
     async function fetchRange(start, end) {
-      const q = `start_date=${encodeURIComponent(start)}&end_date=${encodeURIComponent(end)}`;
+      const lim = detailLimitSel?.value ?? "250";
+      const q = `start_date=${encodeURIComponent(start)}&end_date=${encodeURIComponent(end)}&detail_limit=${encodeURIComponent(lim)}`;
       const data = await get(`/api/reports/summary?${q}`);
       if (!data.ok) {
+        lastReportsData = null;
         if (errEl) {
           errEl.textContent = data.message || "Unable to load reports.";
           errEl.classList.remove("hidden");
@@ -2756,6 +2966,7 @@
       if (me.resolved_theme) applyResolvedTheme(me.resolved_theme);
       updateCompanyTimezoneFromMe(me);
       refreshFooterBar();
+      applyFooterSupportLink(me);
       if (!me.integrations?.features?.tasks_reports) {
         if (errEl) {
           errEl.textContent = "Reports are not enabled for your subscription plan.";
@@ -2780,6 +2991,24 @@
       const en = endIn?.value?.trim();
       if (!s || !en) return;
       await fetchRange(s, en);
+    });
+
+    detailLimitSel?.addEventListener("change", async () => {
+      const s = startIn?.value?.trim();
+      const en = endIn?.value?.trim();
+      if (!s || !en) return;
+      await fetchRange(s, en);
+    });
+
+    document.getElementById("reports-export-csv")?.addEventListener("click", () => {
+      if (!lastReportsData || !(lastReportsData.completed_tasks_detail || []).length) {
+        if (errEl) {
+          errEl.textContent = "No detail rows to export for this range.";
+          errEl.classList.remove("hidden");
+        }
+        return;
+      }
+      downloadReportsDetailCsv(lastReportsData);
     });
 
     init();
@@ -2822,6 +3051,7 @@
       if (me.resolved_theme) applyResolvedTheme(me.resolved_theme);
       updateCompanyTimezoneFromMe(me);
       refreshFooterBar();
+      applyFooterSupportLink(me);
       if (managerRoles.includes(me.user.role)) {
         adminLink?.classList.remove("hidden");
       }
@@ -3051,6 +3281,379 @@
     });
   }
 
+  function setupSupport() {
+    if (path !== "/support") return;
+
+    const form = document.getElementById("support-new-form");
+    const listEl = document.getElementById("support-ticket-list");
+    const emptyEl = document.getElementById("support-list-empty");
+    const msgEl = document.getElementById("support-new-msg");
+    const limited = document.querySelector(".support-page .banner.warning") !== null;
+
+    async function loadList() {
+      const data = await get("/api/support/tickets");
+      if (!data.ok) return;
+      if (!listEl) return;
+      listEl.innerHTML = "";
+      const rows = data.tickets || [];
+      if (!rows.length) {
+        emptyEl?.classList.remove("hidden");
+        return;
+      }
+      emptyEl?.classList.add("hidden");
+      rows.forEach((t) => {
+        const li = document.createElement("li");
+        li.className = "support-ticket-row";
+        const a = document.createElement("a");
+        a.href = `/support/${t.id}`;
+        a.className = "support-ticket-link";
+        const title = document.createElement("div");
+        title.className = "support-ticket-link-title";
+        title.textContent = t.title || "Ticket";
+        const meta = document.createElement("div");
+        meta.className = "muted support-ticket-link-meta";
+        const st = t.status === "closed" ? "Closed" : "Open";
+        meta.textContent = `${st} · ${supportPriorityLabel(t.priority)} · #${t.id}`;
+        a.appendChild(title);
+        a.appendChild(meta);
+        li.appendChild(a);
+        listEl.appendChild(li);
+      });
+    }
+
+    (async () => {
+      const me = await get("/api/auth/me");
+      if (!me.ok || !me.company_authenticated) {
+        window.location.href = "/login";
+        return;
+      }
+      if (!me.user) {
+        window.location.href = "/dashboard";
+        return;
+      }
+      if (me.resolved_theme) applyResolvedTheme(me.resolved_theme);
+      updateCompanyTimezoneFromMe(me);
+      refreshFooterBar();
+      applyFooterSupportLink(me);
+      if (form && limited) {
+        form.querySelectorAll("input, textarea, button, select").forEach((el) => {
+          if (el.type !== "button") el.disabled = true;
+        });
+      }
+      await loadList();
+    })();
+
+    form?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!msgEl) return;
+      msgEl.classList.add("hidden");
+      if (limited) return;
+      const title = document.getElementById("support-title")?.value?.trim();
+      const description = document.getElementById("support-desc")?.value?.trim();
+      const priority = document.getElementById("support-priority")?.value || "normal";
+      const fileInput = document.getElementById("support-image");
+      if (!title || !description) return;
+      const fd = new FormData();
+      fd.append("title", title);
+      fd.append("description", description);
+      fd.append("priority", priority);
+      if (fileInput?.files?.length) {
+        fd.append("image", fileInput.files[0]);
+      }
+      const r = await postMultipart("/api/support/tickets", fd);
+      if (!r.ok) {
+        msgEl.textContent = r.message || "Could not create ticket.";
+        msgEl.className = "user-feedback user-feedback--error";
+        msgEl.classList.remove("hidden");
+        return;
+      }
+      form.reset();
+      msgEl.textContent = "Ticket created.";
+      msgEl.className = "user-feedback user-feedback--success";
+      msgEl.classList.remove("hidden");
+      await loadList();
+      if (r.ticket_id) {
+        window.location.href = `/support/${r.ticket_id}`;
+      }
+    });
+
+    document.getElementById("theme-toggle-support")?.addEventListener("click", async () => {
+      const next = document.body.classList.contains("theme-dark") ? "light" : "dark";
+      const r = await post("/api/auth/theme-preference", { theme: next });
+      if (r.ok && r.resolved_theme) applyResolvedTheme(r.resolved_theme);
+      else applyResolvedTheme(next);
+    });
+
+    document.getElementById("logout-all-support")?.addEventListener("click", async () => {
+      await post("/api/auth/logout-all");
+      window.location.href = "/login";
+    });
+  }
+
+  function setupSupportTicket() {
+    const m = path.match(/^\/support\/(\d+)$/);
+    if (!m) return;
+    const ticketId = Number(m[1]);
+    if (!ticketId) return;
+
+    const main = document.getElementById("support-ticket-main");
+    const errEl = document.getElementById("support-ticket-error");
+    const metaEl = document.getElementById("support-ticket-meta");
+    const titleEl = document.getElementById("support-ticket-title");
+    const priEl = document.getElementById("support-ticket-priority");
+    const descEl = document.getElementById("support-ticket-desc");
+    const imgWrap = document.getElementById("support-ticket-initial-img");
+    const timesEl = document.getElementById("support-ticket-times");
+    const closeWrap = document.getElementById("support-ticket-close-wrap");
+    const closeBtn = document.getElementById("support-ticket-close-btn");
+    const msgList = document.getElementById("support-messages-list");
+    const replyCard = document.getElementById("support-reply-card");
+    const replyForm = document.getElementById("support-reply-form");
+    const replyMsg = document.getElementById("support-reply-msg");
+    const limited = document.querySelector("#support-ticket-main .banner.warning") !== null;
+
+    let pollTimer = null;
+
+    function renderTicket(data) {
+      const t = data.ticket;
+      if (!t) return;
+      if (metaEl) {
+        metaEl.textContent = t.tenant_name ? `Company: ${t.tenant_name}` : "";
+      }
+      if (titleEl) titleEl.textContent = t.title || "";
+      if (priEl) {
+        priEl.textContent = supportPriorityLabel(t.priority);
+        priEl.className = `support-priority-badge support-priority-${t.priority || "normal"}`;
+      }
+      if (descEl) {
+        descEl.textContent = t.description || "";
+      }
+      if (imgWrap) {
+        imgWrap.innerHTML = "";
+        imgWrap.classList.add("hidden");
+        if (t.initial_attachment_url) {
+          imgWrap.classList.remove("hidden");
+          const im = document.createElement("img");
+          im.src = t.initial_attachment_url;
+          im.alt = "Attachment";
+          im.className = "support-attachment-img";
+          imgWrap.appendChild(im);
+        }
+      }
+      if (timesEl) {
+        const openDur = formatSupportDuration(t.open_seconds);
+        let txt = `Created by ${t.created_by?.display_name || "Unknown"} · Open for ${openDur}`;
+        if (t.closed_at) {
+          txt += ` · Closed ${t.closed_at}`;
+          if (t.closed_by_name) txt += ` (${t.closed_by_name})`;
+        }
+        timesEl.textContent = txt;
+      }
+      if (closeWrap && closeBtn) {
+        closeWrap.classList.toggle("hidden", !t.can_close);
+        closeBtn.disabled = limited;
+      }
+      if (replyCard) {
+        replyCard.classList.toggle("hidden", !t.can_reply);
+        replyForm?.querySelectorAll("input, textarea, button").forEach((el) => {
+          if (el.type === "button" || el.tagName === "BUTTON") el.disabled = limited;
+          else el.disabled = limited || !t.can_reply;
+        });
+      }
+    }
+
+    function renderMessages(messages) {
+      if (!msgList) return;
+      msgList.innerHTML = "";
+      (messages || []).forEach((msg) => {
+        const li = document.createElement("li");
+        li.className = "support-message-item";
+        const head = document.createElement("div");
+        head.className = "support-message-head";
+        head.textContent = `${msg.user?.display_name || "User"} · ${msg.created_at || ""}`;
+        const body = document.createElement("div");
+        body.className = "support-message-body";
+        body.textContent = msg.body || "";
+        li.appendChild(head);
+        li.appendChild(body);
+        if (msg.attachment_url) {
+          const iw = document.createElement("div");
+          iw.className = "support-attachment-wrap";
+          const im = document.createElement("img");
+          im.src = msg.attachment_url;
+          im.alt = "Attachment";
+          im.className = "support-attachment-img";
+          iw.appendChild(im);
+          li.appendChild(iw);
+        }
+        msgList.appendChild(li);
+      });
+    }
+
+    async function loadTicket() {
+      const data = await get(`/api/support/tickets/${ticketId}`);
+      if (!data.ok) {
+        if (errEl) {
+          errEl.textContent = data.message || "Could not load ticket.";
+          errEl.classList.remove("hidden");
+        }
+        return;
+      }
+      errEl?.classList.add("hidden");
+      renderTicket(data);
+      renderMessages(data.messages);
+    }
+
+    (async () => {
+      const me = await get("/api/auth/me");
+      if (!me.ok || !me.company_authenticated) {
+        window.location.href = "/login";
+        return;
+      }
+      if (!me.user) {
+        window.location.href = "/dashboard";
+        return;
+      }
+      if (me.resolved_theme) applyResolvedTheme(me.resolved_theme);
+      updateCompanyTimezoneFromMe(me);
+      refreshFooterBar();
+      applyFooterSupportLink(me);
+      await loadTicket();
+      pollTimer = window.setInterval(loadTicket, 4000);
+    })();
+
+    window.addEventListener("beforeunload", () => {
+      if (pollTimer) window.clearInterval(pollTimer);
+    });
+
+    closeBtn?.addEventListener("click", async () => {
+      if (limited) return;
+      const r = await post(`/api/support/tickets/${ticketId}/close`, {});
+      if (!r.ok) {
+        if (errEl) {
+          errEl.textContent = r.message || "Could not close.";
+          errEl.classList.remove("hidden");
+        }
+        return;
+      }
+      await loadTicket();
+    });
+
+    replyForm?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!replyMsg) return;
+      replyMsg.classList.add("hidden");
+      if (limited) return;
+      const body = document.getElementById("support-reply-body")?.value?.trim();
+      const fileInput = document.getElementById("support-reply-image");
+      if (!body) return;
+      if (fileInput?.files?.length) {
+        const fd = new FormData();
+        fd.append("body", body);
+        fd.append("image", fileInput.files[0]);
+        const r = await postMultipart(`/api/support/tickets/${ticketId}/messages`, fd);
+        if (!r.ok) {
+          replyMsg.textContent = r.message || "Could not send.";
+          replyMsg.className = "user-feedback user-feedback--error";
+          replyMsg.classList.remove("hidden");
+          return;
+        }
+      } else {
+        const r = await post(`/api/support/tickets/${ticketId}/messages`, { body });
+        if (!r.ok) {
+          replyMsg.textContent = r.message || "Could not send.";
+          replyMsg.className = "user-feedback user-feedback--error";
+          replyMsg.classList.remove("hidden");
+          return;
+        }
+      }
+      replyForm.reset();
+      await loadTicket();
+    });
+
+    document.getElementById("theme-toggle-support-ticket")?.addEventListener("click", async () => {
+      const next = document.body.classList.contains("theme-dark") ? "light" : "dark";
+      const r = await post("/api/auth/theme-preference", { theme: next });
+      if (r.ok && r.resolved_theme) applyResolvedTheme(r.resolved_theme);
+      else applyResolvedTheme(next);
+    });
+
+    document.getElementById("logout-all-support-ticket")?.addEventListener("click", async () => {
+      await post("/api/auth/logout-all");
+      window.location.href = "/login";
+    });
+  }
+
+  function setupSupportAll() {
+    if (path !== "/support/all") return;
+
+    const listEl = document.getElementById("support-all-list");
+    const emptyEl = document.getElementById("support-all-empty");
+
+    async function load() {
+      const data = await get("/api/support/tickets?scope=all");
+      if (!data.ok) {
+        window.location.href = "/support";
+        return;
+      }
+      if (!listEl) return;
+      listEl.innerHTML = "";
+      const rows = data.tickets || [];
+      if (!rows.length) {
+        emptyEl?.classList.remove("hidden");
+        return;
+      }
+      emptyEl?.classList.add("hidden");
+      rows.forEach((t) => {
+        const li = document.createElement("li");
+        li.className = "support-ticket-row";
+        const a = document.createElement("a");
+        a.href = `/support/${t.id}`;
+        a.className = "support-ticket-link";
+        const title = document.createElement("div");
+        title.className = "support-ticket-link-title";
+        title.textContent = t.title || "Ticket";
+        const meta = document.createElement("div");
+        meta.className = "muted support-ticket-link-meta";
+        const st = t.status === "closed" ? "Closed" : "Open";
+        meta.textContent = `${t.tenant_name || ""} · ${st} · ${supportPriorityLabel(t.priority)} · #${t.id}`;
+        a.appendChild(title);
+        a.appendChild(meta);
+        li.appendChild(a);
+        listEl.appendChild(li);
+      });
+    }
+
+    (async () => {
+      const me = await get("/api/auth/me");
+      if (!me.ok || !me.company_authenticated) {
+        window.location.href = "/login";
+        return;
+      }
+      if (!me.user?.can_view_all_support) {
+        window.location.href = "/support";
+        return;
+      }
+      if (me.resolved_theme) applyResolvedTheme(me.resolved_theme);
+      updateCompanyTimezoneFromMe(me);
+      refreshFooterBar();
+      applyFooterSupportLink(me);
+      await load();
+    })();
+
+    document.getElementById("theme-toggle-support-all")?.addEventListener("click", async () => {
+      const next = document.body.classList.contains("theme-dark") ? "light" : "dark";
+      const r = await post("/api/auth/theme-preference", { theme: next });
+      if (r.ok && r.resolved_theme) applyResolvedTheme(r.resolved_theme);
+      else applyResolvedTheme(next);
+    });
+
+    document.getElementById("logout-all-support-all")?.addEventListener("click", async () => {
+      await post("/api/auth/logout-all");
+      window.location.href = "/login";
+    });
+  }
+
   function setupHelp() {
     if (path !== "/help" && path !== "/changelog") return;
 
@@ -3068,6 +3671,7 @@
       if (me.ok) {
         updateCompanyTimezoneFromMe(me);
         refreshFooterBar();
+        applyFooterSupportLink(me);
       }
     })();
   }
@@ -3078,7 +3682,11 @@
   setupAdmin();
   setupReports();
   setupTraining();
+  setupSupport();
+  setupSupportTicket();
+  setupSupportAll();
   setupHelp();
 
   refreshFooterBar();
+  applyHolidaySkinFromApi();
 })();

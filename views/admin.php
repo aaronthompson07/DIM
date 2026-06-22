@@ -1,3 +1,17 @@
+<?php
+declare(strict_types=1);
+
+use App\Core\Auth;
+
+$adminSection = $adminSection ?? 'hub';
+$adminPanelVisible = static function (string $panel) use ($adminSection): bool {
+    if ($adminSection === 'hub') {
+        return $panel === 'overview';
+    }
+
+    return $adminSection === $panel;
+};
+?>
 <!doctype html>
 <html lang="en">
 <head>
@@ -16,6 +30,9 @@
         <div class="brand">DoItMeow Admin</div>
     </div>
     <div class="actions topbar-actions">
+        <?php if ($adminSection !== 'hub'): ?>
+        <a href="/admin"><button type="button" class="ghost">← Admin home</button></a>
+        <?php endif; ?>
         <button type="button" id="admin-theme-toggle" class="ghost">Toggle theme</button>
         <a href="/dashboard"><button type="button">Back to Dashboard</button></a>
     </div>
@@ -25,65 +42,96 @@
         <div class="banner warning">Maintenance mode is active. Write actions are disabled.</div>
     <?php endif; ?>
 
-    <section class="card hidden" id="impersonation-card">
-        <h2>Companies (owner / super admin)</h2>
-        <p class="muted">View another tenant’s data, or create a new company. Your login session stays on your home tenant.</p>
-        <div class="stack">
-            <label>View tenant</label>
-            <select id="impersonate-tenant-select"></select>
-            <div class="row-actions row-actions-spaced">
-                <button type="button" id="impersonate-go">View this tenant</button>
-                <button type="button" id="impersonate-clear" class="ghost">Stop viewing</button>
-            </div>
-            <p id="impersonation-status" class="muted"></p>
-        </div>
-        <hr class="admin-divider">
-        <h3>Create new company</h3>
-        <p class="muted">Creates a tenant with default time slots and a tenant admin. They sign in with the company login + admin PIN.</p>
-        <form id="create-tenant-form" class="stack form-grid-2">
-            <div>
-                <label>Company name</label>
-                <input type="text" id="ct-name" required maxlength="120" autocomplete="organization">
-            </div>
-            <div>
-                <label>Company login</label>
-                <input type="text" id="ct-username" required maxlength="79" pattern="[a-zA-Z0-9][a-zA-Z0-9_-]*" autocomplete="off">
-            </div>
-            <div>
-                <label>Company password</label>
-                <input type="password" id="ct-password" required minlength="8" autocomplete="new-password">
-            </div>
-            <div>
-                <label>Owner email</label>
-                <input type="email" id="ct-email" required maxlength="190" autocomplete="email">
-            </div>
-            <div>
-                <label>Admin display name</label>
-                <input type="text" id="ct-admin-name" required maxlength="120" autocomplete="name">
-            </div>
-            <div>
-                <label>Admin 6-digit PIN</label>
-                <input type="password" id="ct-admin-pin" required maxlength="6" pattern="\d{6}" inputmode="numeric" autocomplete="one-time-code">
-            </div>
-            <div class="form-grid-full">
-                <label>Timezone</label>
-                <?php
-                $timezoneSelectId = 'ct-tz';
-                $timezoneSelectName = null;
-                $timezoneSelected = 'UTC';
-                require base_path('views/partials/timezone_select.php');
-                ?>
-            </div>
-            <div class="form-grid-full row-actions row-actions-spaced">
-                <button type="submit" id="ct-submit">Create company</button>
-            </div>
-        </form>
-    </section>
-
-    <nav class="admin-tabs" id="admin-tabs" aria-label="Admin sections"></nav>
-
     <div class="admin-panels">
-        <div class="admin-panel hidden" id="panel-tasks" data-panel="tasks">
+        <div class="admin-panel<?= $adminPanelVisible('overview') ? '' : ' hidden' ?>" id="panel-overview" data-panel="overview">
+            <div class="admin-hub">
+                <header class="admin-hub-hero card">
+                    <h2 class="admin-hub-hero-title">Administration</h2>
+                    <p class="muted admin-hub-hero-lead">Configure your workspace from one place. Open a section below; use <strong>Admin home</strong> in the header when you are inside a section.</p>
+                </header>
+                <div class="admin-hub-grid" id="admin-hub-grid">
+                    <article class="card admin-hub-card" id="hub-card-tasks">
+                        <h3 class="admin-hub-card-title">Tasks</h3>
+                        <p class="muted admin-hub-card-desc">Create and edit recurring work, priorities, assignees, and time-of-day columns on the board.</p>
+                        <a class="ghost admin-hub-external" href="/admin/tasks">Open tasks</a>
+                    </article>
+                    <article class="card admin-hub-card hidden" id="hub-card-slots">
+                        <h3 class="admin-hub-card-title">Time of day</h3>
+                        <p class="muted admin-hub-card-desc">Name and order the dashboard columns (for example Morning, Afternoon). Deactivate slots you no longer need.</p>
+                        <a class="ghost admin-hub-external" href="/admin/slots">Open time slots</a>
+                    </article>
+                    <article class="card admin-hub-card hidden" id="hub-card-priorities">
+                        <h3 class="admin-hub-card-title">Priorities</h3>
+                        <p class="muted admin-hub-card-desc">Labels and colors that appear on task cards so the team can spot urgency at a glance.</p>
+                        <a class="ghost admin-hub-external" href="/admin/priorities">Open priorities</a>
+                    </article>
+                    <article class="card admin-hub-card hidden" id="hub-card-messages">
+                        <h3 class="admin-hub-card-title">System messages</h3>
+                        <p class="muted admin-hub-card-desc">Publish notices on the dashboard for your company, or (when permitted) broadcast and maintenance mode.</p>
+                        <a class="ghost admin-hub-external" href="/admin/messages">Open messages</a>
+                    </article>
+                    <article class="card admin-hub-card" id="hub-card-users">
+                        <h3 class="admin-hub-card-title">People</h3>
+                        <p class="muted admin-hub-card-desc">Invite teammates, set roles, and manage six-digit PINs for shared devices.</p>
+                        <a class="ghost admin-hub-external" href="/admin/users">Open people</a>
+                    </article>
+                    <article class="card admin-hub-card hidden" id="hub-card-logs">
+                        <h3 class="admin-hub-card-title">Activity logs</h3>
+                        <p class="muted admin-hub-card-desc">Review important changes for compliance and troubleshooting.</p>
+                        <a class="ghost admin-hub-external" href="/admin/logs">Open logs</a>
+                    </article>
+                    <article class="card admin-hub-card hidden" id="hub-card-training">
+                        <h3 class="admin-hub-card-title">Training</h3>
+                        <p class="muted admin-hub-card-desc">Define training items, build templates, and assign bundles to your team.</p>
+                        <a class="ghost admin-hub-external" href="/admin/training">Open training</a>
+                    </article>
+                    <article class="card admin-hub-card hidden" id="hub-card-company">
+                        <h3 class="admin-hub-card-title">Company profile</h3>
+                        <p class="muted admin-hub-card-desc">Legal name, time zone, optional US ZIP for weather, branding, default theme, and account controls.</p>
+                        <a class="ghost admin-hub-external" href="/admin/company">Open company</a>
+                    </article>
+                    <article class="card admin-hub-card hidden" id="hub-card-plans">
+                        <h3 class="admin-hub-card-title">Billing plans</h3>
+                        <p class="muted admin-hub-card-desc">Subscription tiers, pricing flags, and which capabilities ship with each level.</p>
+                        <a class="ghost admin-hub-external" href="/admin/plans">Open plans</a>
+                    </article>
+                    <article class="card admin-hub-card hidden" id="hub-card-matrix">
+                        <h3 class="admin-hub-card-title">Feature matrix</h3>
+                        <p class="muted admin-hub-card-desc">Map product modules to each plan so upgrades unlock the right options for customers.</p>
+                        <a class="ghost admin-hub-external" href="/admin/matrix">Open feature matrix</a>
+                    </article>
+                    <article class="card admin-hub-card" id="hub-card-support">
+                        <h3 class="admin-hub-card-title">Support</h3>
+                        <p class="muted admin-hub-card-desc">Open a ticket for your organization: describe the issue, set priority, and attach a screenshot if it helps.</p>
+                        <a class="ghost admin-hub-external" href="/support">Open support</a>
+                    </article>
+                    <article class="card admin-hub-card hidden" id="hub-card-reports">
+                        <h3 class="admin-hub-card-title">Task reports</h3>
+                        <p class="muted admin-hub-card-desc">Completion totals by day and by person, plus a detailed audit-style export for the date range you choose.</p>
+                        <a class="ghost admin-hub-external" href="/reports">Open reports</a>
+                    </article>
+                    <article class="card admin-hub-card hidden" id="hub-card-support-all">
+                        <h3 class="admin-hub-card-title">All companies’ tickets</h3>
+                        <p class="muted admin-hub-card-desc">Cross-tenant queue for platform owners: browse, reply, and close tickets from every customer.</p>
+                        <a class="ghost admin-hub-external" href="/support/all">Open all tickets</a>
+                    </article>
+                    <?php if (Auth::canImpersonate()) { ?>
+                    <article class="card admin-hub-card" id="hub-card-impersonate">
+                        <h3 class="admin-hub-card-title">View as tenant</h3>
+                        <p class="muted admin-hub-card-desc">Open another company’s data in this browser while your session stays on your home tenant.</p>
+                        <a class="ghost admin-hub-external" href="/admin/impersonate">Open tenant view</a>
+                    </article>
+                    <article class="card admin-hub-card" id="hub-card-create-company">
+                        <h3 class="admin-hub-card-title">Create company</h3>
+                        <p class="muted admin-hub-card-desc">Provision a new tenant with default columns and an initial tenant admin account.</p>
+                        <a class="ghost admin-hub-external" href="/admin/create-company">Open create company</a>
+                    </article>
+                    <?php } ?>
+                </div>
+            </div>
+        </div>
+
+        <div class="admin-panel<?= $adminPanelVisible('tasks') ? '' : ' hidden' ?>" id="panel-tasks" data-panel="tasks">
             <div class="card">
                 <h2>Tasks</h2>
                 <p class="muted">Assign each task to a time-of-day column (Morning, Afternoon, etc.).</p>
@@ -221,7 +269,7 @@
             </div>
         </div>
 
-        <div class="admin-panel hidden" id="panel-slots" data-panel="slots">
+        <div class="admin-panel<?= $adminPanelVisible('slots') ? '' : ' hidden' ?>" id="panel-slots" data-panel="slots">
             <div class="card">
                 <h2>Time of day</h2>
                 <p class="muted">Names appear as columns on the dashboard (left to right by sort order). Disabled slots stay off the board but keep existing task links.</p>
@@ -233,7 +281,7 @@
             </div>
         </div>
 
-        <div class="admin-panel hidden" id="panel-messages" data-panel="messages">
+        <div class="admin-panel<?= $adminPanelVisible('messages') ? '' : ' hidden' ?>" id="panel-messages" data-panel="messages">
             <div class="card">
                 <h2>System messages</h2>
                 <p class="muted">Publish notices on the dashboard. Tenant admins only see options for their company. Owner and super admin can also send global notices and maintenance mode.</p>
@@ -258,7 +306,7 @@
             </div>
         </div>
 
-        <div class="admin-panel hidden" id="panel-users" data-panel="users">
+        <div class="admin-panel<?= $adminPanelVisible('users') ? '' : ' hidden' ?>" id="panel-users" data-panel="users">
             <div class="card">
                 <h2>People</h2>
                 <p class="muted">Create and edit users, set PINs, or disable access (users are not deleted).</p>
@@ -279,7 +327,7 @@
             </div>
         </div>
 
-        <div class="admin-panel hidden" id="panel-company" data-panel="company">
+        <div class="admin-panel<?= $adminPanelVisible('company') ? '' : ' hidden' ?>" id="panel-company" data-panel="company">
             <div class="card">
                 <h2>Company settings</h2>
                 <p class="muted">Applies to the tenant you are viewing (including when impersonating another company).</p>
@@ -320,7 +368,7 @@
             </div>
         </div>
 
-        <div class="admin-panel hidden" id="panel-priorities" data-panel="priorities">
+        <div class="admin-panel<?= $adminPanelVisible('priorities') ? '' : ' hidden' ?>" id="panel-priorities" data-panel="priorities">
             <div class="card">
                 <h2>Priorities</h2>
                 <p class="muted">Define levels and colors. Each open task shows a colored bar on the left matching its priority.</p>
@@ -333,10 +381,10 @@
             </div>
         </div>
 
-        <div class="admin-panel hidden" id="panel-plans" data-panel="plans">
+        <div class="admin-panel<?= $adminPanelVisible('plans') ? '' : ' hidden' ?>" id="panel-plans" data-panel="plans">
             <div class="card">
                 <h2>Subscription plans</h2>
-                <p class="muted">Owner / super admin: create plans and map features on the Plans matrix tab.</p>
+                <p class="muted">Owner / super admin: create plans and map features from the Billing plans and Feature matrix pages.</p>
                 <h3>Add plan</h3>
                 <form id="plan-create-form" class="stack form-grid-2">
                     <div>
@@ -364,7 +412,7 @@
             </div>
         </div>
 
-        <div class="admin-panel hidden" id="panel-logs" data-panel="logs">
+        <div class="admin-panel<?= $adminPanelVisible('logs') ? '' : ' hidden' ?>" id="panel-logs" data-panel="logs">
             <div class="card">
                 <h2>Activity logs</h2>
                 <p class="muted">Recent audit events for this company (newest first, up to 150).</p>
@@ -377,7 +425,7 @@
             </div>
         </div>
 
-        <div class="admin-panel admin-panel-training hidden" id="panel-training" data-panel="training">
+        <div class="admin-panel admin-panel-training<?= $adminPanelVisible('training') ? '' : ' hidden' ?>" id="panel-training" data-panel="training">
             <div class="card">
                 <h2>Training items</h2>
                 <p class="muted">Reusable tasks (e.g. “Fire safety video”). Save, then add them to templates or assign directly.</p>
@@ -457,7 +505,7 @@
             </div>
         </div>
 
-        <div class="admin-panel hidden" id="panel-matrix" data-panel="matrix">
+        <div class="admin-panel<?= $adminPanelVisible('matrix') ? '' : ' hidden' ?>" id="panel-matrix" data-panel="matrix">
             <div class="card">
                 <h2>Feature matrix</h2>
                 <p class="muted">Map product features to each billing plan (owner / super admin).</p>

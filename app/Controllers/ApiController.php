@@ -9,6 +9,7 @@ use App\Core\ArrowChatIntegration;
 use App\Core\Auth;
 use App\Core\TenantTime;
 use App\Services\AuditLogger;
+use App\Services\UsFederalHolidays;
 use App\Services\WeatherAlertsService;
 use PDO;
 
@@ -118,6 +119,7 @@ final class ApiController
              WHERE o.tenant_id = :tenant_id
                AND o.completed_at IS NULL
                AND t.deleted_at IS NULL
+               AND t.is_active = 1
                AND (
                     o.due_date = :due_date_exact
                     OR (t.is_infinity = 1 AND o.due_date <= :due_date_upto)
@@ -166,6 +168,7 @@ final class ApiController
              WHERE o.tenant_id = :tenant_id
                AND o.completed_at IS NULL
                AND t.deleted_at IS NULL
+               AND t.is_active = 1
                AND (
                     o.due_date = :due_date_exact
                     OR (t.is_infinity = 1 AND o.due_date <= :due_date_upto)
@@ -219,6 +222,7 @@ final class ApiController
              WHERE o.tenant_id = :tenant_id
                AND o.completed_at IS NULL
                AND t.deleted_at IS NULL
+               AND t.is_active = 1
                AND (
                     o.due_date = :due_date_exact
                     OR (t.is_infinity = 1 AND o.due_date <= :due_date_upto)
@@ -259,6 +263,7 @@ final class ApiController
              WHERE o.tenant_id = :tenant_id
                AND o.completed_at IS NULL
                AND t.deleted_at IS NULL
+               AND t.is_active = 1
                AND t.assigned_user_id = :user_id
                AND (
                     o.due_date = :due_date_exact
@@ -319,6 +324,7 @@ final class ApiController
              WHERE o.tenant_id = :tenant_id
                AND o.completed_at IS NULL
                AND t.deleted_at IS NULL
+               AND t.is_active = 1
                AND t.assigned_user_id = :user_id
                AND (
                     o.due_date = :due_date_exact
@@ -662,6 +668,7 @@ final class ApiController
                 'tenant_id' => $homeTenantId,
                 'can_edit_tasks' => $this->isTaskEditor(),
                 'can_delete_tasks' => $this->isTaskDeleter(),
+                'can_view_all_support' => in_array((string) ($_SESSION['role'] ?? ''), ['owner', 'super_admin'], true),
             ] : null,
         ]);
     }
@@ -714,6 +721,28 @@ final class ApiController
             return;
         }
 
+        $detailLimitRaw = isset($_GET['detail_limit']) ? trim((string) $_GET['detail_limit']) : '250';
+        $detailLimitAllowed = [50, 100, 250, 500, 1000];
+        $reportsDetailMax = 50000;
+        if ($detailLimitRaw === 'all') {
+            $detailLimit = $reportsDetailMax;
+            $detailLimitMode = 'all';
+        } elseif ($detailLimitRaw === '') {
+            $detailLimit = 250;
+            $detailLimitMode = '250';
+        } elseif (ctype_digit($detailLimitRaw)) {
+            $n = (int) $detailLimitRaw;
+            if (!in_array($n, $detailLimitAllowed, true)) {
+                json_response(['ok' => false, 'message' => 'detail_limit must be 50, 100, 250, 500, 1000, or all.'], 422);
+                return;
+            }
+            $detailLimit = $n;
+            $detailLimitMode = (string) $n;
+        } else {
+            json_response(['ok' => false, 'message' => 'detail_limit must be 50, 100, 250, 500, 1000, or all.'], 422);
+            return;
+        }
+
         $byDay = $this->pdo->prepare(
             'SELECT DATE(completed_at) AS d, COUNT(*) AS c
              FROM task_occurrences
@@ -741,6 +770,15 @@ final class ApiController
         );
         $byUser->execute(['tenant_id' => $tenantId, 'start_d' => $start, 'end_d' => $end]);
 
+        $totalDone = $this->pdo->prepare(
+            'SELECT COUNT(*) FROM task_occurrences
+             WHERE tenant_id = :tenant_id AND completed_at IS NOT NULL
+             AND DATE(completed_at) >= :start_d AND DATE(completed_at) <= :end_d'
+        );
+        $totalDone->execute(['tenant_id' => $tenantId, 'start_d' => $start, 'end_d' => $end]);
+        $completedTotal = (int) $totalDone->fetchColumn();
+
+        $lim = max(1, min($reportsDetailMax, $detailLimit));
         $detailStmt = $this->pdo->prepare(
             'SELECT o.id AS occurrence_id, t.title, t.details, o.completed_at,
                     COALESCE(u.display_name, \'Unknown\') AS completed_by
@@ -752,17 +790,10 @@ final class ApiController
                AND DATE(o.completed_at) >= :start_d
                AND DATE(o.completed_at) <= :end_d
              ORDER BY o.completed_at DESC
-             LIMIT 250'
+             LIMIT ' . $lim
         );
         $detailStmt->execute(['tenant_id' => $tenantId, 'start_d' => $start, 'end_d' => $end]);
         $detailRows = $detailStmt->fetchAll();
-
-        $totalDone = $this->pdo->prepare(
-            'SELECT COUNT(*) FROM task_occurrences
-             WHERE tenant_id = :tenant_id AND completed_at IS NOT NULL
-             AND DATE(completed_at) >= :start_d AND DATE(completed_at) <= :end_d'
-        );
-        $totalDone->execute(['tenant_id' => $tenantId, 'start_d' => $start, 'end_d' => $end]);
 
         $today = TenantTime::todayYmd($this->pdo, $tenantId);
         $openToday = $this->pdo->prepare(
@@ -783,7 +814,10 @@ final class ApiController
             'ok' => true,
             'start_date' => $start,
             'end_date' => $end,
-            'completed_total' => (int) $totalDone->fetchColumn(),
+            'completed_total' => $completedTotal,
+            'detail_limit' => $detailLimitMode,
+            'detail_rows_returned' => count($detailRows),
+            'detail_truncated' => $completedTotal > count($detailRows),
             'open_today' => (int) $openToday->fetchColumn(),
             'completed_by_day' => array_map(static fn ($r) => ['date' => $r['d'], 'count' => (int) $r['c']], $byDayRows),
             'completed_by_user' => array_map(
@@ -952,6 +986,8 @@ final class ApiController
             'levels' => $levels,
             'features' => $features,
             'matrix' => $map,
+            'can_view_reports' => Auth::canViewReports(),
+            'can_view_all_support' => in_array($role, ['owner', 'super_admin'], true),
             'can_manage_matrix' => in_array($role, ['owner', 'super_admin'], true),
             'can_manage_tenant' => in_array($role, ['owner', 'super_admin', 'tenant_admin'], true),
             'can_manage_time_slots' => in_array($role, ['owner', 'super_admin', 'tenant_admin'], true),
@@ -1918,6 +1954,16 @@ final class ApiController
      */
     private function ensureTodayBoardOccurrences(int $tenantId, string $today): void
     {
+        /*
+         * Include infinity tasks: the old query only repaired (is_infinity = 0 AND missing row for today).
+         * Weekly + infinity tasks created on a non-scheduled day never got an occurrence; syncTodayOccurrence
+         * only runs from here or admin save, so they stayed invisible until a manual save on the right weekday.
+         *
+         * "No visible open occurrence" matches the dashboard board query: due today, or infinity carry-over
+         * (open row with due_date <= today). Slot-mismatch rows for today are still repaired separately.
+         */
+        /* Native PDO prepares (ATTR_EMULATE_PREPARES false) require a distinct placeholder per bind;
+         * reusing :today three times throws HY093 and breaks the whole dashboard API. */
         $stmt = $this->pdo->prepare(
             'SELECT DISTINCT t.id
              FROM tasks t
@@ -1925,14 +1971,19 @@ final class ApiController
                AND t.deleted_at IS NULL
                AND t.is_active = 1
                AND (
-                 (t.is_infinity = 0 AND NOT EXISTS (
+                 NOT EXISTS (
                     SELECT 1 FROM task_occurrences o
-                    WHERE o.task_id = t.id AND o.due_date = :today_missing
-                  ))
+                    WHERE o.task_id = t.id
+                      AND o.completed_at IS NULL
+                      AND (
+                           (t.is_infinity = 0 AND o.due_date = :today_1)
+                        OR (t.is_infinity = 1 AND o.due_date <= :today_2)
+                      )
+                  )
                  OR EXISTS (
                     SELECT 1 FROM task_occurrences o
                     WHERE o.task_id = t.id
-                      AND o.due_date = :today_slot
+                      AND o.due_date = :today_3
                       AND o.completed_at IS NULL
                       AND (
                         o.time_slot_id IS NULL
@@ -1943,8 +1994,9 @@ final class ApiController
         );
         $stmt->execute([
             'tenant_id' => $tenantId,
-            'today_missing' => $today,
-            'today_slot' => $today,
+            'today_1' => $today,
+            'today_2' => $today,
+            'today_3' => $today,
         ]);
         foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $taskId) {
             $this->syncTodayOccurrence($tenantId, (int) $taskId);
@@ -1973,6 +2025,15 @@ final class ApiController
             );
             $fallback->execute(['tid' => $tenantId]);
             $row = $fallback->fetch();
+            if (!$row) {
+                $fallbackAny = $this->pdo->prepare(
+                    'SELECT id FROM tenant_time_slots
+                     WHERE tenant_id = :tid
+                     ORDER BY sort_order ASC, id ASC LIMIT 1'
+                );
+                $fallbackAny->execute(['tid' => $tenantId]);
+                $row = $fallbackAny->fetch();
+            }
             if (!$row) {
                 return;
             }
@@ -3492,6 +3553,31 @@ final class ApiController
             'kind' => $kind,
         ]);
         json_response(['ok' => true]);
+    }
+
+    /** Active US federal holiday “season” for themed page background (±4 days), using company-local today. */
+    public function holidaysSeason(): void
+    {
+        if (empty($_SESSION['tenant_id'])) {
+            json_response(['ok' => true, 'skin' => null]);
+            return;
+        }
+
+        $tenantId = Auth::effectiveTenantId();
+        $today = TenantTime::todayYmd($this->pdo, $tenantId);
+        $season = UsFederalHolidays::activeSeasonForDate($today);
+        if ($season === null) {
+            json_response(['ok' => true, 'skin' => null]);
+            return;
+        }
+
+        json_response([
+            'ok' => true,
+            'skin' => $season['skin'],
+            'holiday_name' => $season['holiday_name'],
+            'holiday_date' => $season['holiday_date'],
+            'days_from_holiday' => $season['days_from_holiday'],
+        ]);
     }
 
     private function input(): array
