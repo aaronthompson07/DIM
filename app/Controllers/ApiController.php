@@ -8,6 +8,7 @@ use App\Core\ArrowChatBridge;
 use App\Core\ArrowChatIntegration;
 use App\Core\Auth;
 use App\Core\TenantTime;
+use App\Services\AppointmentBoardService;
 use App\Services\AuditLogger;
 use App\Services\UsFederalHolidays;
 use App\Services\WeatherAlertsService;
@@ -947,11 +948,15 @@ final class ApiController
         $tenantId = Auth::effectiveTenantId();
 
         $tenantStmt = $this->pdo->prepare(
-            'SELECT id, name, company_username, owner_email, timezone, zip_code, theme_default, plan_key, is_active, logo_url
+            'SELECT id, name, company_username, board_public_key, owner_email, timezone, zip_code, theme_default, plan_key, is_active, logo_url
              FROM tenants WHERE id = :id LIMIT 1'
         );
         $tenantStmt->execute(['id' => $tenantId]);
         $tenant = $tenantStmt->fetch();
+        if (is_array($tenant)) {
+            $boardSvc = new AppointmentBoardService();
+            $tenant['board_public_key'] = $boardSvc->ensureTenantPublicKey($this->pdo, $tenantId);
+        }
 
         $levels = $this->pdo->query(
             'SELECT id, level_key, name, is_paid, monthly_price, show_ads, is_active
@@ -2783,18 +2788,20 @@ final class ApiController
 
         $this->pdo->beginTransaction();
         try {
+            $boardKey = AppointmentBoardService::generatePublicKey();
             $ins = $this->pdo->prepare(
                 'INSERT INTO tenants (
-                    name, company_username, password_hash, owner_email, timezone,
+                    name, company_username, board_public_key, password_hash, owner_email, timezone,
                     theme_default, trial_started_at, trial_ends_at, plan_key, is_demo, is_active
                 ) VALUES (
-                    :name, :cu, :ph, :oe, :tz,
+                    :name, :cu, :bk, :ph, :oe, :tz,
                     \'light\', NOW(), DATE_ADD(NOW(), INTERVAL 14 DAY), \'basic_ads\', 0, 1
                 )'
             );
             $ins->execute([
                 'name' => $companyName,
                 'cu' => $companyUsername,
+                'bk' => $boardKey,
                 'ph' => $hash,
                 'oe' => $ownerEmail,
                 'tz' => $timezone,
@@ -3553,6 +3560,123 @@ final class ApiController
             'kind' => $kind,
         ]);
         json_response(['ok' => true]);
+    }
+
+    /** Public live board feed (no login). Query: ?company=board_public_key */
+    public function boardPublicFeed(): void
+    {
+        $key = trim((string) ($_GET['company'] ?? ''));
+        $svc = new AppointmentBoardService();
+        $tenantId = $svc->tenantIdForPublicKey($this->pdo, $key);
+        if ($tenantId === null) {
+            json_response(['ok' => false, 'message' => 'Unknown or inactive company board.'], 404);
+            return;
+        }
+
+        $tstmt = $this->pdo->prepare('SELECT name, timezone FROM tenants WHERE id = :id LIMIT 1');
+        $tstmt->execute(['id' => $tenantId]);
+        $tenant = $tstmt->fetch();
+        if (!$tenant) {
+            json_response(['ok' => false, 'message' => 'Company not found.'], 404);
+            return;
+        }
+
+        json_response([
+            'ok' => true,
+            'tenant_name' => (string) $tenant['name'],
+            'timezone' => TenantTime::validateTimezoneIdentifier((string) $tenant['timezone']),
+            'entries' => $svc->listActiveForDisplay($this->pdo, $tenantId),
+        ]);
+    }
+
+    /** Staff view of active board rows for the signed-in company. */
+    public function boardStaffFeed(): void
+    {
+        if (!Auth::requireUser()) {
+            json_response(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $tenantId = Auth::effectiveTenantId();
+        $svc = new AppointmentBoardService();
+        $publicKey = $svc->ensureTenantPublicKey($this->pdo, $tenantId);
+
+        json_response([
+            'ok' => true,
+            'board_public_key' => $publicKey,
+            'entries' => $svc->listActiveForDisplay($this->pdo, $tenantId),
+        ]);
+    }
+
+    public function boardEntryCreate(): void
+    {
+        if (!Auth::requireUser()) {
+            json_response(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+
+        if ($this->limitedMode) {
+            json_response(['ok' => false, 'message' => 'System is in limited mode due to maintenance.'], 503);
+            return;
+        }
+
+        $tenantId = Auth::effectiveTenantId();
+        $input = $this->input();
+        $assignedUserId = (int) ($input['assigned_user_id'] ?? 0);
+        $appointmentRaw = (string) ($input['appointment_at'] ?? '');
+        $notes = isset($input['notes']) ? (string) $input['notes'] : null;
+
+        $svc = new AppointmentBoardService();
+        $appointmentMysql = $svc->parseAppointmentInput($this->pdo, $tenantId, $appointmentRaw);
+        if ($appointmentMysql === null) {
+            json_response(['ok' => false, 'message' => 'Enter a valid appointment date and time.'], 422);
+            return;
+        }
+
+        try {
+            $entryId = $svc->createEntry(
+                $this->pdo,
+                $tenantId,
+                $assignedUserId,
+                $appointmentMysql,
+                $notes,
+                (int) $_SESSION['user_id']
+            );
+        } catch (\InvalidArgumentException $e) {
+            json_response(['ok' => false, 'message' => $e->getMessage()], 422);
+            return;
+        }
+
+        AuditLogger::log($this->pdo, $tenantId, (int) $_SESSION['user_id'], 'board.entry.create', [
+            'entry_id' => $entryId,
+        ]);
+        json_response(['ok' => true, 'entry_id' => $entryId]);
+    }
+
+    public function boardRegeneratePublicKey(): void
+    {
+        if (!Auth::requireUser()) {
+            json_response(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $role = (string) ($_SESSION['role'] ?? '');
+        if (!in_array($role, ['owner', 'super_admin', 'tenant_admin'], true)) {
+            json_response(['ok' => false, 'message' => 'Forbidden'], 403);
+            return;
+        }
+
+        if ($this->limitedMode) {
+            json_response(['ok' => false, 'message' => 'System is in limited mode due to maintenance.'], 503);
+            return;
+        }
+
+        $tenantId = Auth::effectiveTenantId();
+        $svc = new AppointmentBoardService();
+        $newKey = $svc->regeneratePublicKey($this->pdo, $tenantId);
+
+        AuditLogger::log($this->pdo, $tenantId, (int) $_SESSION['user_id'], 'board.public_key.regenerate');
+        json_response(['ok' => true, 'board_public_key' => $newKey]);
     }
 
     /** Active US federal holiday “season” for themed page background (±4 days), using company-local today. */

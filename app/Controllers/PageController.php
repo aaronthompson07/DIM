@@ -241,4 +241,23 @@ final class PageController
         require base_path('views/support-all.php');
     }
 
+    public function boardDisplay(): void
+    {
+        require base_path('views/board-display.php');
+    }
+
+    public function appointments(bool $limitedMode, ?string $migrationError): void
+    {
+        if (empty($_SESSION['company_authenticated'])) {
+            header('Location: /login', true, 302);
+            exit;
+        }
+        if (!Auth::requireUser()) {
+            header('Location: /dashboard', true, 302);
+            exit;
+        }
+        $title = 'Appointment board · DoItMeow';
+        require base_path('views/appointments.php');
+    }
+
 }

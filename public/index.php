@@ -104,6 +104,16 @@ if ($path === '/changelog') {
     exit;
 }
 
+if ($path === '/board') {
+    $pageController->boardDisplay();
+    exit;
+}
+
+if ($path === '/appointments') {
+    $pageController->appointments($limitedMode, $migrationError);
+    exit;
+}
+
 if ($path === '/support') {
     $pageController->support($limitedMode, $migrationError);
     exit;
@@ -403,6 +413,26 @@ if (str_starts_with($path, '/api/')) {
 
     if ($method === 'GET' && $path === '/api/holidays/season') {
         $api->holidaysSeason();
+        exit;
+    }
+
+    if ($method === 'GET' && $path === '/api/board/public') {
+        $api->boardPublicFeed();
+        exit;
+    }
+
+    if ($method === 'GET' && $path === '/api/board/entries') {
+        $api->boardStaffFeed();
+        exit;
+    }
+
+    if ($method === 'POST' && $path === '/api/board/entries') {
+        $api->boardEntryCreate();
+        exit;
+    }
+
+    if ($method === 'POST' && $path === '/api/board/regenerate-key') {
+        $api->boardRegeneratePublicKey();
         exit;
     }
 

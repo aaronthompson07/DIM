@@ -2165,3 +2165,191 @@ body.theme-dark[data-holiday-skin="christmas"] {
     radial-gradient(ellipse 45% 35% at 90% 60%, rgba(200, 180, 80, 0.1), transparent 45%),
     linear-gradient(180deg, #141e1a 0%, #121826 100%);
 }
+
+/* Appointment board (staff + public display) */
+.appointments-page .appointments-form textarea {
+  width: 100%;
+  min-height: 5.5rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.appointments-active-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.appointments-active-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem 0.85rem;
+  background: var(--surface);
+}
+
+.appointments-active-item-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  align-items: baseline;
+  margin-bottom: 0.25rem;
+}
+
+.appointments-active-item-head strong {
+  font-size: 1.02rem;
+}
+
+.appointments-status-pill {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+}
+
+.appointments-status-overdue {
+  background: #fde8e8;
+  color: #9b1c1c;
+}
+
+.appointments-status-soon {
+  background: #fff6db;
+  color: #8a5a00;
+}
+
+.appointments-status-upcoming {
+  background: #e8f6ee;
+  color: #0f6b3f;
+}
+
+.board-public-url-input {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.board-display-page {
+  min-height: 100vh;
+  background: #eef2f8;
+}
+
+.board-display-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 2rem;
+}
+
+.board-display-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.board-display-header h1 {
+  margin: 0 0 0.25rem;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+}
+
+.board-display-clock {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.board-display-table-wrap {
+  overflow-x: auto;
+  padding: 0;
+}
+
+.board-display-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: clamp(0.95rem, 1.6vw, 1.12rem);
+}
+
+.board-display-table th,
+.board-display-table td {
+  text-align: left;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.board-display-table th {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.board-display-empty {
+  text-align: center;
+  padding: 2rem 1rem !important;
+}
+
+.board-row-overdue td {
+  background: #fde8e8;
+}
+
+.board-row-soon td {
+  background: #fff6db;
+}
+
+.board-row-upcoming td {
+  background: #e8f6ee;
+}
+
+.board-display-error {
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  background: #fff1f0;
+  border: 1px solid #f3c1bd;
+  color: #9b1c1c;
+}
+
+.board-display-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  align-items: center;
+  margin-top: 0.85rem;
+  font-size: 0.88rem;
+}
+
+.board-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.board-swatch {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  display: inline-block;
+}
+
+.board-swatch-overdue { background: #fde8e8; }
+.board-swatch-soon { background: #fff6db; }
+.board-swatch-upcoming { background: #e8f6ee; }
+
+.board-display-refresh-note {
+  margin-left: auto;
+}
+
+@media (max-width: 720px) {
+  .board-display-header {
+    flex-direction: column;
+  }
+  .board-display-refresh-note {
+    margin-left: 0;
+  }
+}

@@ -564,6 +564,10 @@
           !(me.user && me.integrations?.features?.training_employee)
         );
       }
+      const appointmentsWrap = document.getElementById("appointments-link-wrap");
+      if (appointmentsWrap) {
+        appointmentsWrap.classList.toggle("hidden", !me.user);
+      }
       if (!me.user || !me.integrations?.show_google_ads) {
         if (adSlot) adSlot.classList.add("hidden");
         if (adInsHost) {
@@ -2440,6 +2444,9 @@
         if (coPlatformFields) {
           coPlatformFields.classList.toggle("hidden", !config.can_manage_platform_tenant);
         }
+        if (el("co-board-public-url") && tn.board_public_key) {
+          el("co-board-public-url").value = boardPublicUrlForKey(String(tn.board_public_key));
+        }
       }
 
       await loadTaskSlotOptions(true);
@@ -2527,6 +2534,40 @@
         newPriorityName.value = "";
         await loadPriorityEditor();
         await loadTaskPriorityOptions(true);
+      }
+    });
+
+    function boardPublicUrlForKey(key) {
+      return `${window.location.origin}/board?company=${encodeURIComponent(String(key || ""))}`;
+    }
+
+    document.getElementById("co-board-copy-url")?.addEventListener("click", async () => {
+      const input = document.getElementById("co-board-public-url");
+      const url = input?.value?.trim() || "";
+      if (!url) return;
+      try {
+        await navigator.clipboard.writeText(url);
+        setMessageOk(true, "Public board link copied.", "", "");
+      } catch {
+        input?.select();
+        setMessageOk(false, "", "Copy failed.", "Select the link and copy manually.");
+      }
+    });
+
+    document.getElementById("co-board-regenerate-key")?.addEventListener("click", async () => {
+      if (!currentConfig?.can_manage_tenant) return;
+      if (
+        !window.confirm(
+          "Generate a new public link code? Existing bookmarks and displays using the old link will stop working."
+        )
+      ) {
+        return;
+      }
+      const result = await post("/api/board/regenerate-key", {});
+      setMessageOk(result.ok, "New public board link created.", "Failed.", result.message);
+      if (result.ok && result.board_public_key) {
+        const input = document.getElementById("co-board-public-url");
+        if (input) input.value = boardPublicUrlForKey(result.board_public_key);
       }
     });
 
@@ -3654,6 +3695,225 @@
     });
   }
 
+  function setupAppointments() {
+    if (path !== "/appointments") return;
+
+    const form = document.getElementById("appointment-form");
+    const assignedSelect = document.getElementById("appt-assigned");
+    const timeInput = document.getElementById("appt-time");
+    const notesInput = document.getElementById("appt-notes");
+    const messageEl = document.getElementById("appointment-form-message");
+    const listEl = document.getElementById("appointments-active-list");
+    const publicWrap = document.getElementById("appointments-public-link-wrap");
+    const publicLink = document.getElementById("appointments-public-link");
+    const submitBtn = document.getElementById("appt-submit");
+    const userAuthModal = document.getElementById("user-auth-modal");
+    const closeUserAuthModal = document.getElementById("close-user-auth-modal");
+    const userForm = document.getElementById("dashboard-user-form");
+    const pinInput = document.getElementById("dashboard-pin-input");
+    const keypad = document.getElementById("dashboard-keypad");
+    const userMessage = document.getElementById("dashboard-user-message");
+    let limitedMode = false;
+    let companyTimezone = "UTC";
+
+    function boardPublicUrlForKey(key) {
+      return `${window.location.origin}/board?company=${encodeURIComponent(String(key || ""))}`;
+    }
+
+    function statusLabel(status) {
+      if (status === "overdue") return "Past due";
+      if (status === "soon") return "Within 2 hours";
+      return "Later";
+    }
+
+    function statusClass(status) {
+      if (status === "overdue") return "appointments-status-overdue";
+      if (status === "soon") return "appointments-status-soon";
+      return "appointments-status-upcoming";
+    }
+
+    function renderActiveList(entries) {
+      if (!listEl) return;
+      if (!entries.length) {
+        listEl.innerHTML = '<p class="muted">No appointments on the board right now.</p>';
+        return;
+      }
+      listEl.innerHTML = entries
+        .map((row) => {
+          const notes = row.notes
+            ? `<p class="muted">${escapeHtml(row.notes)}</p>`
+            : "";
+          return `<article class="appointments-active-item ${statusClass(row.status)}">
+            <div class="appointments-active-item-head">
+              <strong>${escapeHtml(row.patient_name)}</strong>
+              <span class="appointments-status-pill ${statusClass(row.status)}">${statusLabel(row.status)}</span>
+              <span class="muted">${escapeHtml(row.appointment_display)}</span>
+            </div>
+            <p>Assigned to <strong>${escapeHtml(row.assigned_name)}</strong></p>
+            ${notes}
+          </article>`;
+        })
+        .join("");
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    async function loadStaffUsers() {
+      if (!assignedSelect) return;
+      const usersRes = await get("/api/auth/company-users");
+      assignedSelect.innerHTML = "";
+      if (!usersRes.ok || !usersRes.users?.length) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "No team members available";
+        assignedSelect.appendChild(opt);
+        return;
+      }
+      usersRes.users.forEach((u) => {
+        const opt = document.createElement("option");
+        opt.value = String(u.id);
+        opt.textContent = u.display_name;
+        assignedSelect.appendChild(opt);
+      });
+    }
+
+    async function refreshBoard() {
+      const data = await get("/api/board/entries");
+      if (!data.ok) return;
+      if (data.board_public_key && publicLink && publicWrap) {
+        publicLink.href = boardPublicUrlForKey(data.board_public_key);
+        publicLink.textContent = publicLink.href;
+        publicWrap.classList.remove("hidden");
+      }
+      renderActiveList(data.entries || []);
+    }
+
+    function wirePinModal(switchUserBtn) {
+      if (keypad && pinInput) {
+        keypad.innerHTML = "";
+        "1234567890".split("").forEach((digit) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.textContent = digit;
+          btn.addEventListener("click", () => {
+            if (pinInput.value.length < 6) pinInput.value += digit;
+          });
+          keypad.appendChild(btn);
+        });
+        const clearBtn = document.createElement("button");
+        clearBtn.type = "button";
+        clearBtn.textContent = "Clear";
+        clearBtn.addEventListener("click", () => {
+          pinInput.value = "";
+        });
+        keypad.appendChild(clearBtn);
+      }
+      switchUserBtn?.addEventListener("click", () => userAuthModal?.classList.remove("hidden"));
+      closeUserAuthModal?.addEventListener("click", () => userAuthModal?.classList.add("hidden"));
+      userForm?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const pin = pinInput?.value || "";
+        const result = await post("/api/auth/pin-login", { pin });
+        if (!result.ok) {
+          if (userMessage) userMessage.textContent = result.message || "Invalid PIN.";
+          return;
+        }
+        if (userMessage) userMessage.textContent = "";
+        userAuthModal?.classList.add("hidden");
+        window.location.reload();
+      });
+    }
+
+    wirePinModal(document.getElementById("switch-user-btn"));
+
+    form?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (limitedMode) return;
+      const assignedUserId = Number(assignedSelect?.value || 0);
+      const appointmentAt = timeInput?.value || "";
+      const notes = notesInput?.value?.trim() || "";
+      if (!assignedUserId || !appointmentAt) return;
+      const result = await post("/api/board/entries", {
+        assigned_user_id: assignedUserId,
+        appointment_at: appointmentAt,
+        notes,
+      });
+      if (messageEl) {
+        messageEl.textContent = result.ok
+          ? "Appointment added to the board."
+          : result.message || "Could not save appointment.";
+      }
+      if (result.ok) {
+        if (notesInput) notesInput.value = "";
+        await refreshBoard();
+      }
+    });
+
+    (async () => {
+      const me = await get("/api/auth/me");
+      if (!me.ok || !me.company_authenticated) {
+        window.location.href = "/login";
+        return;
+      }
+      if (!me.user) {
+        window.location.href = "/dashboard";
+        return;
+      }
+      limitedMode = Boolean(me.limited_mode);
+      companyTimezone = me.company_timezone || "UTC";
+      if (me.resolved_theme) applyResolvedTheme(me.resolved_theme);
+      updateCompanyTimezoneFromMe(me);
+      refreshFooterBar();
+      applyFooterSupportLink(me);
+      applyTopbarBrandFromMe(me);
+      const nameEl = document.getElementById("user-display-name");
+      if (nameEl) nameEl.textContent = me.user.display_name || "Signed in";
+      if (submitBtn) submitBtn.disabled = limitedMode;
+      await loadStaffUsers();
+      await refreshBoard();
+      setInterval(refreshBoard, 30000);
+    })();
+
+    document.getElementById("theme-toggle")?.addEventListener("click", async () => {
+      const next = document.body.classList.contains("theme-dark") ? "light" : "dark";
+      const r = await post("/api/auth/theme-preference", { theme: next });
+      if (r.ok && r.resolved_theme) applyResolvedTheme(r.resolved_theme);
+      else applyResolvedTheme(next);
+    });
+
+    document.getElementById("logout-all")?.addEventListener("click", async () => {
+      await post("/api/auth/logout-all");
+      window.location.href = "/login";
+    });
+  }
+
+  function applyTopbarBrandFromMe(me) {
+    const logo = document.getElementById("tenant-logo");
+    const brandText = document.getElementById("tenant-brand-text");
+    const tb = me?.tenant_brand;
+    if (brandText) {
+      brandText.textContent = tb?.name ? String(tb.name) : "DoItMeow";
+    }
+    if (logo) {
+      const url = tb?.logo_url ? String(tb.logo_url).trim() : "";
+      if (url) {
+        logo.src = url;
+        logo.alt = tb?.name ? String(tb.name) : "Logo";
+        logo.classList.remove("hidden");
+      } else {
+        logo.removeAttribute("src");
+        logo.alt = "";
+        logo.classList.add("hidden");
+      }
+    }
+  }
+
   function setupHelp() {
     if (path !== "/help" && path !== "/changelog") return;
 
@@ -3685,6 +3945,7 @@
   setupSupport();
   setupSupportTicket();
   setupSupportAll();
+  setupAppointments();
   setupHelp();
 
   refreshFooterBar();

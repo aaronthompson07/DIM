@@ -356,6 +356,15 @@ $adminPanelVisible = static function (string $panel) use ($adminSection): bool {
                     </select>
                     <label>New company password</label>
                     <input type="password" id="co-password" minlength="8" autocomplete="new-password" placeholder="Leave blank to keep current">
+                    <div class="stack board-public-url-block">
+                        <label>Public appointment board URL</label>
+                        <p class="muted form-hint">Share this link on a tablet or TV browser. It refreshes every 30 seconds and drops rows 30 minutes after the appointment time.</p>
+                        <div class="row-actions board-public-url-row">
+                            <input type="text" id="co-board-public-url" readonly class="board-public-url-input">
+                            <button type="button" id="co-board-copy-url" class="ghost">Copy link</button>
+                            <button type="button" id="co-board-regenerate-key" class="ghost">New link code</button>
+                        </div>
+                    </div>
                     <div id="co-platform-fields" class="stack hidden">
                         <label>Company login (username)</label>
                         <input type="text" id="co-company-username" maxlength="79" pattern="[a-zA-Z0-9][a-zA-Z0-9_-]*" autocomplete="off">

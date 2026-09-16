@@ -24,6 +24,7 @@
             <button type="button" id="switch-user-btn" class="ghost">Switch user</button>
         </div>
         <a href="/training" id="training-link-wrap" class="hidden"><button type="button">Training</button></a>
+        <a href="/appointments" id="appointments-link-wrap" class="hidden"><button type="button">Appointments</button></a>
         <a href="/admin" id="admin-link-wrap" class="hidden"><button id="admin-link" type="button">Admin</button></a>
         <button id="theme-toggle" type="button">Toggle Theme</button>
         <button id="logout-all" type="button">Logout</button>

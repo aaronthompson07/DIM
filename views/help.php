@@ -28,6 +28,7 @@
             <li><a href="#signing-in">Signing in</a></li>
             <li><a href="#company-time">Company time, weather &amp; footer</a></li>
             <li><a href="#dashboard">Dashboard &amp; tasks</a></li>
+            <li><a href="#appointment-board">Appointment board</a></li>
             <li><a href="#roles">Roles &amp; permissions</a></li>
             <li><a href="#admin">Admin</a></li>
             <li><a href="#reports">Reports</a></li>
@@ -95,6 +96,17 @@
             <p>Notices can appear above weather alerts on the dashboard. Tenant admins only publish for their own company. Owner/super admin can also publish global notices and maintenance mode (global; view-only for everyone except owner/super admin until removed).</p>
             <h3>Recurrence (in admin)</h3>
             <p>Tasks can be one-off, daily, weekly, bi-weekly (with an anchor date), monthly, or quarterly. Monthly and quarterly can use either a day of month or the <strong>first chosen weekday</strong> in that month. Admins set recurrence when creating or editing a task. Which day counts as “today” follows the company time zone.</p>
+        </section>
+
+        <section class="card help-section" id="appointment-board">
+            <h2>Appointment board</h2>
+            <p>After PIN sign-in, open <strong>Appointments</strong> from the dashboard header to add rows to a live schedule for waiting areas or treatment rooms.</p>
+            <ul>
+                <li><strong>Privacy</strong> — Patient names are generated automatically (random labels); you choose the team member, appointment date/time, and optional notes.</li>
+                <li><strong>Public display</strong> — Under <strong>Admin → Company</strong>, copy the public board URL (or open it from the Appointments page). Open that link on a tablet or TV with <code>?company=…</code> in the address bar.</li>
+                <li><strong>Colors</strong> — Past-due appointments are red, those within the next two hours are yellow, and later ones are green. Rows sort with the most overdue at the top and the furthest appointment at the bottom.</li>
+                <li><strong>Refresh &amp; cleanup</strong> — The public page refreshes every 30 seconds. Rows disappear 30 minutes after their appointment time.</li>
+            </ul>
         </section>
 
         <section class="card help-section" id="roles">
