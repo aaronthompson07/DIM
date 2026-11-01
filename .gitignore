@@ -1,0 +1,15 @@
+# Environment / secrets — never let Git overwrite the server's real .env
+.env
+.env.*
+!.env.example
+
+# Local caches / generated
+/storage/cache/*
+!/storage/cache/.gitignore
+/storage/support_uploads/*
+!/storage/support_uploads/.gitignore
+
+# OS / editor noise
+Thumbs.db
+Desktop.ini
+.DS_Store

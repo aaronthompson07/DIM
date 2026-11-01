@@ -19,22 +19,9 @@ This repository now contains a first-pass PHP + MySQL foundation for DoItMeow wi
 
 1. Copy `.env.example` to `.env`.
 2. Set your MySQL credentials in `.env`.
-3. Point your domain/subdomain **document root** to the `public` directory.
-4. Enable URL rewriting for clean URLs:
-   - **Apache / cPanel:** ensure `mod_rewrite` is enabled (`public/.htaccess` is included).
-   - **IIS / Plesk on Windows:** no action needed — `public/web.config` ships the equivalent
-     rewrite rules. The IIS **URL Rewrite** module must be installed (standard on Plesk Windows),
-     and PHP must be enabled for the site in Plesk.
+3. Point your cPanel domain/subdomain document root to the `public` directory.
+4. Ensure `mod_rewrite` is enabled (`public/.htaccess` is included).
 5. Load the site once; migrations auto-run on first request.
-
-### Plesk on Windows notes
-
-- Set the subscription/site **Document Root to `public`** (not the repository root). A defensive
-  `web.config` in the repo root blocks direct web access to secrets and source if that is
-  misconfigured, but clean URLs only work when the document root is `public`.
-- Give the site's IIS application pool identity **write access** to `storage/cache` and
-  `storage/support_uploads` (used for weather caching and support ticket image uploads).
-- HTTPS is auto-detected for secure session cookies; no code change needed.
 
 Static assets are served from `public/resources`:
 
