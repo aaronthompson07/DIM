@@ -1281,7 +1281,10 @@
     async function loadTenants() {
       if (!impersonateSelect) return;
       const res = await get("/api/admin/tenants");
-      if (!res.ok) return;
+      if (!res.ok) {
+        setPlatformMsg(res.message || "Could not load tenant list.", "error");
+        return;
+      }
       impersonateSelect.innerHTML = "";
       (res.tenants || []).forEach((t) => {
         const opt = document.createElement("option");
@@ -1306,7 +1309,11 @@
       refreshFooterBar();
       applyFooterSupportLink(me);
       const config = await get("/api/admin/config");
-      if (!config.ok || !config.can_impersonate) {
+      if (!config.ok) {
+        setPlatformMsg(config.message || "Could not load admin configuration.", "error");
+        return;
+      }
+      if (!config.can_impersonate) {
         window.location.href = "/admin";
         return;
       }
@@ -3699,11 +3706,16 @@
     if (path !== "/appointments") return;
 
     const form = document.getElementById("appointment-form");
+    const patientInput = document.getElementById("appt-patient");
     const assignedSelect = document.getElementById("appt-assigned");
+    const editAssignedSelect = document.getElementById("appt-edit-assigned");
     const timeInput = document.getElementById("appt-time");
-    const notesInput = document.getElementById("appt-notes");
+    const editCard = document.getElementById("appt-edit-card");
+    const editForm = document.getElementById("appointment-edit-form");
+    const editMessageEl = document.getElementById("appointment-edit-message");
     const messageEl = document.getElementById("appointment-form-message");
     const listEl = document.getElementById("appointments-active-list");
+    let boardEntries = [];
     const publicWrap = document.getElementById("appointments-public-link-wrap");
     const publicLink = document.getElementById("appointments-public-link");
     const submitBtn = document.getElementById("appt-submit");
@@ -3732,28 +3744,90 @@
       return "appointments-status-upcoming";
     }
 
+    function selectedAppointmentType(name) {
+      const el = document.querySelector(`input[name="${name}"]:checked`);
+      const v = el?.value || "room";
+      if (v === "treatment" || v === "anesthesia") return v;
+      return "room";
+    }
+
+    function typeBadgeClass(type) {
+      if (type === "treatment" || type === "surgery") return "board-type-treatment";
+      if (type === "anesthesia") return "board-type-anesthesia";
+      return "board-type-room";
+    }
+
+    function fillUserSelect(selectEl, selectedId) {
+      if (!selectEl) return;
+      selectEl.innerHTML = assignedSelect?.innerHTML || "";
+      if (selectedId) selectEl.value = String(selectedId);
+    }
+
     function renderActiveList(entries) {
+      boardEntries = entries || [];
       if (!listEl) return;
-      if (!entries.length) {
+      if (!boardEntries.length) {
         listEl.innerHTML = '<p class="muted">No appointments on the board right now.</p>';
         return;
       }
-      listEl.innerHTML = entries
+      listEl.innerHTML = boardEntries
         .map((row) => {
-          const notes = row.notes
-            ? `<p class="muted">${escapeHtml(row.notes)}</p>`
-            : "";
+          const typeLabel = escapeHtml(row.appointment_type_label || "Room");
           return `<article class="appointments-active-item ${statusClass(row.status)}">
             <div class="appointments-active-item-head">
               <strong>${escapeHtml(row.patient_name)}</strong>
+              <span class="board-type-badge ${typeBadgeClass(row.appointment_type)}">${typeLabel}</span>
               <span class="appointments-status-pill ${statusClass(row.status)}">${statusLabel(row.status)}</span>
               <span class="muted">${escapeHtml(row.appointment_display)}</span>
             </div>
             <p>Assigned to <strong>${escapeHtml(row.assigned_name)}</strong></p>
-            ${notes}
+            <div class="row-actions row-actions-spaced appointments-item-actions">
+              <button type="button" class="ghost" data-appt-edit="${row.id}">Edit</button>
+              <button type="button" class="ghost" data-appt-done="${row.id}">Mark done</button>
+            </div>
           </article>`;
         })
         .join("");
+
+      listEl.querySelectorAll("[data-appt-edit]").forEach((btn) => {
+        btn.addEventListener("click", () => openEdit(Number(btn.getAttribute("data-appt-edit"))));
+      });
+      listEl.querySelectorAll("[data-appt-done]").forEach((btn) => {
+        btn.addEventListener("click", () => completeEntry(Number(btn.getAttribute("data-appt-done"))));
+      });
+    }
+
+    function openEdit(entryId) {
+      const row = boardEntries.find((e) => Number(e.id) === entryId);
+      if (!row || !editCard) return;
+      document.getElementById("appt-edit-id").value = String(entryId);
+      document.getElementById("appt-edit-patient").value = row.patient_name || "";
+      const editType =
+        row.appointment_type === "surgery" ? "treatment" : row.appointment_type || "room";
+      document.querySelectorAll('input[name="appt-edit-type"]').forEach((input) => {
+        input.checked = input.value === editType;
+      });
+      fillUserSelect(editAssignedSelect, row.assigned_user_id);
+      document.getElementById("appt-edit-time").value = row.appointment_at_local || "";
+      if (editMessageEl) editMessageEl.textContent = "";
+      editCard.classList.remove("hidden");
+      editCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    async function completeEntry(entryId) {
+      if (limitedMode) return;
+      const result = await post("/api/board/entries/complete", { id: entryId });
+      if (messageEl) {
+        messageEl.textContent = result.ok
+          ? "Marked done — removed from the board."
+          : result.message || "Could not mark done.";
+      }
+      if (result.ok) {
+        if (editCard && String(document.getElementById("appt-edit-id")?.value) === String(entryId)) {
+          editCard.classList.add("hidden");
+        }
+        await refreshBoard();
+      }
     }
 
     function escapeHtml(s) {
@@ -3781,6 +3855,7 @@
         opt.textContent = u.display_name;
         assignedSelect.appendChild(opt);
       });
+      fillUserSelect(editAssignedSelect);
     }
 
     async function refreshBoard() {
@@ -3837,12 +3912,14 @@
       if (limitedMode) return;
       const assignedUserId = Number(assignedSelect?.value || 0);
       const appointmentAt = timeInput?.value || "";
-      const notes = notesInput?.value?.trim() || "";
+      const patientName = patientInput?.value?.trim() || "";
+      const appointmentType = selectedAppointmentType("appt-type");
       if (!assignedUserId || !appointmentAt) return;
       const result = await post("/api/board/entries", {
         assigned_user_id: assignedUserId,
         appointment_at: appointmentAt,
-        notes,
+        patient_name: patientName,
+        appointment_type: appointmentType,
       });
       if (messageEl) {
         messageEl.textContent = result.ok
@@ -3850,9 +3927,35 @@
           : result.message || "Could not save appointment.";
       }
       if (result.ok) {
-        if (notesInput) notesInput.value = "";
+        if (patientInput) patientInput.value = "";
         await refreshBoard();
       }
+    });
+
+    editForm?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (limitedMode) return;
+      const entryId = Number(document.getElementById("appt-edit-id")?.value || 0);
+      const result = await post("/api/board/entries/update", {
+        id: entryId,
+        patient_name: document.getElementById("appt-edit-patient")?.value?.trim() || "",
+        appointment_type: selectedAppointmentType("appt-edit-type"),
+        assigned_user_id: Number(editAssignedSelect?.value || 0),
+        appointment_at: document.getElementById("appt-edit-time")?.value || "",
+      });
+      if (editMessageEl) {
+        editMessageEl.textContent = result.ok
+          ? "Changes saved."
+          : result.message || "Could not save changes.";
+      }
+      if (result.ok) {
+        editCard?.classList.add("hidden");
+        await refreshBoard();
+      }
+    });
+
+    document.getElementById("appt-edit-cancel")?.addEventListener("click", () => {
+      editCard?.classList.add("hidden");
     });
 
     (async () => {

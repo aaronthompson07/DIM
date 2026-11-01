@@ -31,9 +31,7 @@
     </div>
 </header>
 <main class="dashboard">
-    <?php if ($limitedMode): ?>
-        <div class="banner warning">Maintenance mode is active. Write actions are disabled.</div>
-    <?php endif; ?>
+    <?php require base_path('views/partials/migration-limited-banner.php'); ?>
 
     <section id="system-messages-section" class="card system-messages-card hidden" aria-label="System messages">
         <ul id="system-messages-list" class="system-messages-list"></ul>

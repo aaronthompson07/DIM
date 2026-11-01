@@ -38,9 +38,7 @@ $adminPanelVisible = static function (string $panel) use ($adminSection): bool {
     </div>
 </header>
 <main class="admin-main">
-    <?php if ($limitedMode): ?>
-        <div class="banner warning">Maintenance mode is active. Write actions are disabled.</div>
-    <?php endif; ?>
+    <?php require base_path('views/partials/migration-limited-banner.php'); ?>
 
     <div class="admin-panels">
         <div class="admin-panel<?= $adminPanelVisible('overview') ? '' : ' hidden' ?>" id="panel-overview" data-panel="overview">
@@ -358,7 +356,7 @@ $adminPanelVisible = static function (string $panel) use ($adminSection): bool {
                     <input type="password" id="co-password" minlength="8" autocomplete="new-password" placeholder="Leave blank to keep current">
                     <div class="stack board-public-url-block">
                         <label>Public appointment board URL</label>
-                        <p class="muted form-hint">Share this link on a tablet or TV browser. It refreshes every 30 seconds and drops rows 30 minutes after the appointment time.</p>
+                        <p class="muted form-hint">Share this link on a tablet or TV browser. It refreshes every 30 seconds; rows stay until someone marks them done. The table shows appointment times only (no dates).</p>
                         <div class="row-actions board-public-url-row">
                             <input type="text" id="co-board-public-url" readonly class="board-public-url-input">
                             <button type="button" id="co-board-copy-url" class="ghost">Copy link</button>

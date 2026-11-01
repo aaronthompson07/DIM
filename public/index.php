@@ -13,6 +13,7 @@ require dirname(__DIR__) . '/app/Core/ArrowChatIntegration.php';
 require dirname(__DIR__) . '/app/Core/ArrowChatBridge.php';
 require dirname(__DIR__) . '/app/Services/AuditLogger.php';
 require dirname(__DIR__) . '/app/Services/WeatherAlertsService.php';
+require dirname(__DIR__) . '/app/Services/AppointmentBoardService.php';
 require dirname(__DIR__) . '/app/Controllers/PageController.php';
 require dirname(__DIR__) . '/app/Controllers/ApiController.php';
 require dirname(__DIR__) . '/app/Controllers/SupportController.php';
@@ -24,14 +25,20 @@ use App\Core\Auth;
 use App\Core\Database;
 use App\Core\Env;
 use App\Core\MigrationRunner;
+use App\Services\AppointmentBoardService;
 
 Env::load(base_path('.env'));
 Auth::initSession();
 
 $pdo = Database::connection();
 $migrationResult = MigrationRunner::runPending($pdo, base_path('database/migrations'));
+AppointmentBoardService::ensureSchema($pdo);
 $limitedMode = (bool) $migrationResult['limited_mode'];
 $migrationError = $migrationResult['error'] ? (string) $migrationResult['error'] : null;
+// Do not lock the whole app when board self-heal succeeded but an idempotent migration still errored.
+if ($limitedMode && AppointmentBoardService::schemaReady($pdo)) {
+    $limitedMode = false;
+}
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
@@ -433,6 +440,21 @@ if (str_starts_with($path, '/api/')) {
 
     if ($method === 'POST' && $path === '/api/board/regenerate-key') {
         $api->boardRegeneratePublicKey();
+        exit;
+    }
+
+    if ($method === 'POST' && $path === '/api/board/entries/update') {
+        $api->boardEntryUpdate();
+        exit;
+    }
+
+    if ($method === 'POST' && $path === '/api/board/entries/complete') {
+        $api->boardEntryComplete();
+        exit;
+    }
+
+    if ($method === 'POST' && $path === '/api/board/public/complete') {
+        $api->boardPublicComplete();
         exit;
     }
 

@@ -11,9 +11,8 @@ CREATE TABLE IF NOT EXISTS appointment_board_entries (
     notes TEXT NULL,
     created_by_user_id BIGINT UNSIGNED NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_abe_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
-    CONSTRAINT fk_abe_assigned FOREIGN KEY (assigned_user_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_abe_tenant_appt (tenant_id, appointment_at)
+    INDEX idx_abe_tenant_appt (tenant_id, appointment_at),
+    INDEX idx_abe_assigned_user (assigned_user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 UPDATE tenants

@@ -2178,6 +2178,55 @@ body.theme-dark[data-holiday-skin="christmas"] {
   color: var(--text);
 }
 
+.appointments-type-row {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.appointments-type-row .inline-check {
+  margin: 0;
+}
+
+.appointments-item-actions {
+  margin-top: 0.5rem;
+}
+
+.board-type-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+
+.board-type-room {
+  background: #e8f0ff;
+  color: #1e4fad;
+}
+
+.board-type-treatment {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+
+.board-type-anesthesia {
+  background: #e6f7f2;
+  color: #0f6b4a;
+}
+
+.board-time-cell {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.board-done-btn {
+  font-size: 0.88rem;
+  padding: 0.35rem 0.75rem;
+}
+
 .appointments-active-list {
   display: grid;
   gap: 0.65rem;

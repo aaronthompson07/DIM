@@ -32,13 +32,11 @@ declare(strict_types=1);
     </div>
 </header>
 <main class="dashboard appointments-page">
-    <?php if ($limitedMode): ?>
-        <div class="banner warning">Maintenance mode is active. Write actions are disabled.</div>
-    <?php endif; ?>
+    <?php require base_path('views/partials/migration-limited-banner.php'); ?>
 
     <section class="card appointments-intro">
         <h1 class="today-title">Appointment board</h1>
-        <p class="muted">Add patients to the live display board. Patient names are generated automatically for privacy. Assign a team member, set the appointment time, and optional notes.</p>
+        <p class="muted">Add patients to the live display board. Enter a patient name (or leave blank for a random privacy label), choose Room, Treatment, or Anesthesia, assign staff, and set the appointment time.</p>
         <p class="muted appointments-public-link-wrap hidden" id="appointments-public-link-wrap">
             Public display URL:
             <a href="#" id="appointments-public-link" target="_blank" rel="noopener noreferrer"></a>
@@ -49,27 +47,66 @@ declare(strict_types=1);
         <h2>New appointment</h2>
         <form id="appointment-form" class="stack appointments-form">
             <div>
+                <label for="appt-patient">Patient name</label>
+                <input type="text" id="appt-patient" maxlength="120" placeholder="e.g. Bailey (leave blank for random label)">
+            </div>
+            <div>
+                <span class="legend-label">Type</span>
+                <div class="appointments-type-row">
+                    <label class="inline-check"><input type="radio" name="appt-type" value="room" checked> Room</label>
+                    <label class="inline-check"><input type="radio" name="appt-type" value="treatment"> Treatment</label>
+                    <label class="inline-check"><input type="radio" name="appt-type" value="anesthesia"> Anesthesia</label>
+                </div>
+            </div>
+            <div>
                 <label for="appt-assigned">Assigned team member</label>
                 <select id="appt-assigned" required></select>
             </div>
             <div>
                 <label for="appt-time">Appointment date &amp; time</label>
                 <input type="datetime-local" id="appt-time" required>
-                <p class="muted form-hint">Times use your company time zone.</p>
+                <p class="muted form-hint">Times use your company time zone. The public board shows the time only.</p>
             </div>
-            <div>
-                <label for="appt-notes">Notes (optional)</label>
-                <textarea id="appt-notes" rows="3" maxlength="5000" placeholder="Reason for visit, prep instructions, etc."></textarea>
-            </div>
-            <p class="muted form-hint">A random patient label is created automatically when you save.</p>
             <button type="submit" id="appt-submit">Add to board</button>
         </form>
         <p id="appointment-form-message" class="muted" role="status"></p>
     </section>
 
+    <section class="card hidden" id="appt-edit-card">
+        <h2>Edit appointment</h2>
+        <form id="appointment-edit-form" class="stack appointments-form">
+            <input type="hidden" id="appt-edit-id" value="">
+            <div>
+                <label for="appt-edit-patient">Patient name</label>
+                <input type="text" id="appt-edit-patient" maxlength="120" required>
+            </div>
+            <div>
+                <span class="legend-label">Type</span>
+                <div class="appointments-type-row">
+                    <label class="inline-check"><input type="radio" name="appt-edit-type" value="room"> Room</label>
+                    <label class="inline-check"><input type="radio" name="appt-edit-type" value="treatment"> Treatment</label>
+                    <label class="inline-check"><input type="radio" name="appt-edit-type" value="anesthesia"> Anesthesia</label>
+                </div>
+            </div>
+            <div>
+                <label for="appt-edit-assigned">Assigned team member</label>
+                <select id="appt-edit-assigned" required></select>
+            </div>
+            <div>
+                <label for="appt-edit-time">Appointment date &amp; time</label>
+                <input type="datetime-local" id="appt-edit-time" required>
+            </div>
+            <div class="row-actions row-actions-spaced">
+                <button type="submit" id="appt-edit-save">Save changes</button>
+                <button type="button" id="appt-edit-cancel" class="ghost">Cancel</button>
+            </div>
+        </form>
+        <p id="appointment-edit-message" class="muted" role="status"></p>
+    </section>
+
     <section class="card">
         <h2>On the board now</h2>
-        <p class="muted">Entries disappear from the public display 30 minutes after their appointment time.</p>
+        <p class="muted">Rows stay on the board until you mark them done (here or on the public display).</p>
         <div id="appointments-active-list" class="appointments-active-list muted">Loading…</div>
     </section>
 </main>

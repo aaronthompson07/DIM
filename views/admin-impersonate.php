@@ -25,9 +25,7 @@ declare(strict_types=1);
     </div>
 </header>
 <main class="admin-main">
-    <?php if ($limitedMode): ?>
-        <div class="banner warning">Maintenance mode is active. Write actions are disabled.</div>
-    <?php endif; ?>
+    <?php require base_path('views/partials/migration-limited-banner.php'); ?>
 
     <section class="card">
         <h2>View another tenant</h2>

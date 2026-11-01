@@ -22,6 +22,12 @@
     return "board-row-upcoming";
   }
 
+  function typeBadgeClass(type) {
+    if (type === "treatment" || type === "surgery") return "board-type-treatment";
+    if (type === "anesthesia") return "board-type-anesthesia";
+    return "board-type-room";
+  }
+
   function tickClock() {
     if (!clockEl || !companyTimezone) return;
     try {
@@ -40,25 +46,62 @@
     }
   }
 
+  async function markDone(entryId, buttonEl) {
+    if (!company || !entryId) return;
+    if (buttonEl) {
+      buttonEl.disabled = true;
+      buttonEl.textContent = "…";
+    }
+    try {
+      const res = await fetch("/api/board/public/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ company, entry_id: entryId }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        throw new Error(data.message || "Could not mark done.");
+      }
+      await refresh();
+    } catch (err) {
+      if (buttonEl) {
+        buttonEl.disabled = false;
+        buttonEl.textContent = "Done";
+      }
+      if (errorEl) {
+        errorEl.textContent = err.message || "Could not mark done.";
+        errorEl.classList.remove("hidden");
+      }
+    }
+  }
+
   function renderRows(entries) {
     if (!bodyEl) return;
     if (!entries.length) {
       bodyEl.innerHTML =
-        '<tr><td colspan="4" class="muted board-display-empty">No appointments on the board right now.</td></tr>';
+        '<tr><td colspan="5" class="muted board-display-empty">No appointments on the board right now.</td></tr>';
       return;
     }
 
     bodyEl.innerHTML = entries
       .map((row) => {
-        const notes = row.notes ? escapeHtml(row.notes) : "—";
-        return `<tr class="${statusClass(row.status)}">
+        const typeLabel = escapeHtml(row.appointment_type_label || "Room");
+        const timeLabel = escapeHtml(row.appointment_time_display || row.appointment_display || "");
+        return `<tr class="${statusClass(row.status)}" data-entry-id="${row.id}">
           <td>${escapeHtml(row.patient_name)}</td>
+          <td><span class="board-type-badge ${typeBadgeClass(row.appointment_type)}">${typeLabel}</span></td>
           <td>${escapeHtml(row.assigned_name)}</td>
-          <td>${escapeHtml(row.appointment_display)}</td>
-          <td>${notes}</td>
+          <td class="board-time-cell">${timeLabel}</td>
+          <td><button type="button" class="board-done-btn ghost" data-done-id="${row.id}">Done</button></td>
         </tr>`;
       })
       .join("");
+
+    bodyEl.querySelectorAll("[data-done-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        markDone(Number(btn.getAttribute("data-done-id")), btn);
+      });
+    });
   }
 
   async function refresh() {
@@ -86,7 +129,7 @@
       companyTimezone = data.timezone || "UTC";
       if (titleEl && data.tenant_name) titleEl.textContent = data.tenant_name;
       if (subtitleEl) {
-        subtitleEl.textContent = "Live appointment schedule";
+        subtitleEl.textContent = "Live schedule — tap Done when finished";
       }
       if (errorEl) errorEl.classList.add("hidden");
       renderRows(data.entries || []);

@@ -102,10 +102,12 @@
             <h2>Appointment board</h2>
             <p>After PIN sign-in, open <strong>Appointments</strong> from the dashboard header to add rows to a live schedule for waiting areas or treatment rooms.</p>
             <ul>
-                <li><strong>Privacy</strong> — Patient names are generated automatically (random labels); you choose the team member, appointment date/time, and optional notes.</li>
+                <li><strong>Patient name</strong> — Enter a name on the form, or leave it blank to use a random privacy label.</li>
+                <li><strong>Type</strong> — Choose <strong>Room</strong>, <strong>Treatment</strong>, or <strong>Anesthesia</strong> for each row (shown on the public board).</li>
+                <li><strong>Edit &amp; done</strong> — On the Appointments page, use <strong>Edit</strong> to change a row, or <strong>Mark done</strong> to remove it from the board. On the public display, tap <strong>Done</strong> on a row for the same effect. Rows do not auto-remove by time.</li>
                 <li><strong>Public display</strong> — Under <strong>Admin → Company</strong>, copy the public board URL (or open it from the Appointments page). Open that link on a tablet or TV with <code>?company=…</code> in the address bar.</li>
                 <li><strong>Colors</strong> — Past-due appointments are red, those within the next two hours are yellow, and later ones are green. Rows sort with the most overdue at the top and the furthest appointment at the bottom.</li>
-                <li><strong>Refresh &amp; cleanup</strong> — The public page refreshes every 30 seconds. Rows disappear 30 minutes after their appointment time.</li>
+                <li><strong>Public display</strong> — The board refreshes every 30 seconds and shows appointment <strong>times only</strong> (no dates). The footer clock still shows the full date for reference.</li>
             </ul>
         </section>
 

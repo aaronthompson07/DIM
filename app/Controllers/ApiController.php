@@ -944,18 +944,33 @@ final class ApiController
             return;
         }
 
+        try {
+            $this->respondAdminConfig();
+        } catch (\Throwable $e) {
+            json_response([
+                'ok' => false,
+                'message' => filter_var((string) env('APP_DEBUG', 'false'), FILTER_VALIDATE_BOOL)
+                    ? $e->getMessage()
+                    : 'Could not load admin configuration.',
+            ], 500);
+        }
+    }
+
+    private function respondAdminConfig(): void
+    {
         $role = (string) ($_SESSION['role'] ?? '');
         $tenantId = Auth::effectiveTenantId();
 
-        $tenantStmt = $this->pdo->prepare(
-            'SELECT id, name, company_username, board_public_key, owner_email, timezone, zip_code, theme_default, plan_key, is_active, logo_url
-             FROM tenants WHERE id = :id LIMIT 1'
-        );
-        $tenantStmt->execute(['id' => $tenantId]);
-        $tenant = $tenantStmt->fetch();
-        if (is_array($tenant)) {
-            $boardSvc = new AppointmentBoardService();
-            $tenant['board_public_key'] = $boardSvc->ensureTenantPublicKey($this->pdo, $tenantId);
+        AppointmentBoardService::ensureSchema($this->pdo);
+
+        $tenant = $this->fetchTenantProfileRow($tenantId);
+        if (is_array($tenant) && AppointmentBoardService::schemaReady($this->pdo)) {
+            try {
+                $boardSvc = new AppointmentBoardService();
+                $tenant['board_public_key'] = $boardSvc->ensureTenantPublicKey($this->pdo, $tenantId);
+            } catch (\Throwable) {
+                $tenant['board_public_key'] = $tenant['board_public_key'] ?? null;
+            }
         }
 
         $levels = $this->pdo->query(
@@ -1379,8 +1394,8 @@ final class ApiController
             return;
         }
 
-        if ($this->limitedMode) {
-            json_response(['ok' => false, 'message' => 'System is in limited mode due to maintenance.'], 503);
+        if ($this->migrationLimitedModeBlocksWrite()) {
+            json_response(['ok' => false, 'message' => 'Database upgrade in progress. Try again shortly.'], 503);
             return;
         }
 
@@ -1410,8 +1425,8 @@ final class ApiController
             return;
         }
 
-        if ($this->limitedMode) {
-            json_response(['ok' => false, 'message' => 'System is in limited mode due to maintenance.'], 503);
+        if ($this->migrationLimitedModeBlocksWrite()) {
+            json_response(['ok' => false, 'message' => 'Database upgrade in progress. Try again shortly.'], 503);
             return;
         }
 
@@ -1684,7 +1699,7 @@ final class ApiController
 
     private function isWriteBlockedForTenant(int $tenantId): bool
     {
-        if ($this->limitedMode) {
+        if ($this->migrationLimitedModeBlocksWrite()) {
             return true;
         }
         if ($this->canBypassTenantMaintenanceWriteLock()) {
@@ -1692,6 +1707,16 @@ final class ApiController
         }
 
         return $this->isTenantMaintenanceActive($tenantId);
+    }
+
+    /** Migration failure lock — owner/super_admin can still manage the platform. */
+    private function migrationLimitedModeBlocksWrite(): bool
+    {
+        if (!$this->limitedMode) {
+            return false;
+        }
+
+        return !$this->canBypassTenantMaintenanceWriteLock();
     }
 
     /** @return list<array{id:int,message_text:string,is_maintenance:int,created_at:string,scope:string}> */
@@ -3565,6 +3590,12 @@ final class ApiController
     /** Public live board feed (no login). Query: ?company=board_public_key */
     public function boardPublicFeed(): void
     {
+        AppointmentBoardService::ensureSchema($this->pdo);
+        if (!AppointmentBoardService::schemaReady($this->pdo)) {
+            json_response(['ok' => false, 'message' => 'Appointment board is unavailable until the database upgrade finishes.'], 503);
+            return;
+        }
+
         $key = trim((string) ($_GET['company'] ?? ''));
         $svc = new AppointmentBoardService();
         $tenantId = $svc->tenantIdForPublicKey($this->pdo, $key);
@@ -3597,14 +3628,35 @@ final class ApiController
             return;
         }
 
+        AppointmentBoardService::ensureSchema($this->pdo);
+        if (!AppointmentBoardService::schemaReady($this->pdo)) {
+            json_response(['ok' => false, 'message' => 'Appointment board database setup is incomplete. Try again in a moment.'], 503);
+            return;
+        }
+
         $tenantId = Auth::effectiveTenantId();
+        if ($tenantId < 1) {
+            json_response(['ok' => false, 'message' => 'Invalid company context.'], 422);
+            return;
+        }
+
         $svc = new AppointmentBoardService();
-        $publicKey = $svc->ensureTenantPublicKey($this->pdo, $tenantId);
+
+        try {
+            $publicKey = $svc->ensureTenantPublicKey($this->pdo, $tenantId);
+            $entries = $svc->listActiveForDisplay($this->pdo, $tenantId);
+        } catch (\Throwable $e) {
+            $msg = filter_var((string) env('APP_DEBUG', 'false'), FILTER_VALIDATE_BOOL)
+                ? $e->getMessage()
+                : 'Could not load appointment board.';
+            json_response(['ok' => false, 'message' => $msg], 500);
+            return;
+        }
 
         json_response([
             'ok' => true,
             'board_public_key' => $publicKey,
-            'entries' => $svc->listActiveForDisplay($this->pdo, $tenantId),
+            'entries' => $entries,
         ]);
     }
 
@@ -3615,8 +3667,14 @@ final class ApiController
             return;
         }
 
-        if ($this->limitedMode) {
-            json_response(['ok' => false, 'message' => 'System is in limited mode due to maintenance.'], 503);
+        if ($this->migrationLimitedModeBlocksWrite()) {
+            json_response(['ok' => false, 'message' => 'Database upgrade in progress. Try again shortly.'], 503);
+            return;
+        }
+
+        AppointmentBoardService::ensureSchema($this->pdo);
+        if (!AppointmentBoardService::schemaReady($this->pdo)) {
+            json_response(['ok' => false, 'message' => 'Appointment board is unavailable until the database upgrade finishes.'], 503);
             return;
         }
 
@@ -3624,7 +3682,8 @@ final class ApiController
         $input = $this->input();
         $assignedUserId = (int) ($input['assigned_user_id'] ?? 0);
         $appointmentRaw = (string) ($input['appointment_at'] ?? '');
-        $notes = isset($input['notes']) ? (string) $input['notes'] : null;
+        $patientName = isset($input['patient_name']) ? (string) $input['patient_name'] : '';
+        $appointmentType = (string) ($input['appointment_type'] ?? 'room');
 
         $svc = new AppointmentBoardService();
         $appointmentMysql = $svc->parseAppointmentInput($this->pdo, $tenantId, $appointmentRaw);
@@ -3639,7 +3698,8 @@ final class ApiController
                 $tenantId,
                 $assignedUserId,
                 $appointmentMysql,
-                $notes,
+                $patientName,
+                $appointmentType,
                 (int) $_SESSION['user_id']
             );
         } catch (\InvalidArgumentException $e) {
@@ -3651,6 +3711,112 @@ final class ApiController
             'entry_id' => $entryId,
         ]);
         json_response(['ok' => true, 'entry_id' => $entryId]);
+    }
+
+    public function boardEntryUpdate(): void
+    {
+        if (!Auth::requireUser()) {
+            json_response(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+
+        if ($this->migrationLimitedModeBlocksWrite()) {
+            json_response(['ok' => false, 'message' => 'Database upgrade in progress. Try again shortly.'], 503);
+            return;
+        }
+
+        AppointmentBoardService::ensureSchema($this->pdo);
+
+        $tenantId = Auth::effectiveTenantId();
+        $input = $this->input();
+        $entryId = (int) ($input['id'] ?? 0);
+        $assignedUserId = (int) ($input['assigned_user_id'] ?? 0);
+        $appointmentRaw = (string) ($input['appointment_at'] ?? '');
+        $patientName = isset($input['patient_name']) ? (string) $input['patient_name'] : '';
+        $appointmentType = (string) ($input['appointment_type'] ?? 'room');
+
+        $svc = new AppointmentBoardService();
+        $appointmentMysql = $svc->parseAppointmentInput($this->pdo, $tenantId, $appointmentRaw);
+        if ($appointmentMysql === null) {
+            json_response(['ok' => false, 'message' => 'Enter a valid appointment date and time.'], 422);
+            return;
+        }
+
+        try {
+            $svc->updateEntry(
+                $this->pdo,
+                $tenantId,
+                $entryId,
+                $assignedUserId,
+                $appointmentMysql,
+                $patientName,
+                $appointmentType
+            );
+        } catch (\InvalidArgumentException $e) {
+            json_response(['ok' => false, 'message' => $e->getMessage()], 422);
+            return;
+        }
+
+        AuditLogger::log($this->pdo, $tenantId, (int) $_SESSION['user_id'], 'board.entry.update', [
+            'entry_id' => $entryId,
+        ]);
+        json_response(['ok' => true]);
+    }
+
+    public function boardEntryComplete(): void
+    {
+        if (!Auth::requireUser()) {
+            json_response(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+
+        if ($this->migrationLimitedModeBlocksWrite()) {
+            json_response(['ok' => false, 'message' => 'Database upgrade in progress. Try again shortly.'], 503);
+            return;
+        }
+
+        AppointmentBoardService::ensureSchema($this->pdo);
+
+        $tenantId = Auth::effectiveTenantId();
+        $input = $this->input();
+        $entryId = (int) ($input['id'] ?? 0);
+        $svc = new AppointmentBoardService();
+        if (!$svc->completeEntry($this->pdo, $tenantId, $entryId)) {
+            json_response(['ok' => false, 'message' => 'Appointment not found or already completed.'], 404);
+            return;
+        }
+
+        AuditLogger::log($this->pdo, $tenantId, (int) $_SESSION['user_id'], 'board.entry.complete', [
+            'entry_id' => $entryId,
+        ]);
+        json_response(['ok' => true]);
+    }
+
+    public function boardPublicComplete(): void
+    {
+        AppointmentBoardService::ensureSchema($this->pdo);
+        if (!AppointmentBoardService::schemaReady($this->pdo)) {
+            json_response(['ok' => false, 'message' => 'Appointment board is unavailable.'], 503);
+            return;
+        }
+
+        $input = $this->input();
+        $key = trim((string) ($input['company'] ?? $_GET['company'] ?? ''));
+        $entryId = (int) ($input['entry_id'] ?? $input['id'] ?? 0);
+
+        $svc = new AppointmentBoardService();
+        $tenantId = $svc->tenantIdForPublicKey($this->pdo, $key);
+        if ($tenantId === null || $entryId < 1) {
+            json_response(['ok' => false, 'message' => 'Invalid request.'], 422);
+            return;
+        }
+
+        if (!$svc->completeEntry($this->pdo, $tenantId, $entryId)) {
+            json_response(['ok' => false, 'message' => 'Appointment not found or already completed.'], 404);
+            return;
+        }
+
+        json_response(['ok' => true]);
     }
 
     public function boardRegeneratePublicKey(): void
@@ -3713,5 +3879,32 @@ final class ApiController
 
         $decoded = json_decode($raw, true);
         return is_array($decoded) ? $decoded : [];
+    }
+
+    /** @return array<string, mixed>|false */
+    private function fetchTenantProfileRow(int $tenantId): array|false
+    {
+        $withBoard = AppointmentBoardService::schemaReady($this->pdo);
+        $sql = $withBoard
+            ? 'SELECT id, name, company_username, board_public_key, owner_email, timezone, zip_code, theme_default, plan_key, is_active, logo_url
+               FROM tenants WHERE id = :id LIMIT 1'
+            : 'SELECT id, name, company_username, owner_email, timezone, zip_code, theme_default, plan_key, is_active, logo_url
+               FROM tenants WHERE id = :id LIMIT 1';
+
+        try {
+            $tenantStmt = $this->pdo->prepare($sql);
+            $tenantStmt->execute(['id' => $tenantId]);
+            $tenant = $tenantStmt->fetch();
+
+            return is_array($tenant) ? $tenant : false;
+        } catch (\Throwable) {
+            if ($withBoard) {
+                AppointmentBoardService::ensureSchema($this->pdo);
+
+                return $this->fetchTenantProfileRow($tenantId);
+            }
+
+            return false;
+        }
     }
 }

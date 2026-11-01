@@ -28,13 +28,14 @@ $companyKey = isset($_GET['company']) ? trim((string) $_GET['company']) : '';
             <thead>
                 <tr>
                     <th scope="col">Patient</th>
+                    <th scope="col">Type</th>
                     <th scope="col">Assigned to</th>
-                    <th scope="col">Appointment</th>
-                    <th scope="col">Notes</th>
+                    <th scope="col">Time</th>
+                    <th scope="col">Done</th>
                 </tr>
             </thead>
             <tbody id="board-display-body">
-                <tr><td colspan="4" class="muted board-display-empty">Waiting for data…</td></tr>
+                <tr><td colspan="5" class="muted board-display-empty">Waiting for data…</td></tr>
             </tbody>
         </table>
     </div>
