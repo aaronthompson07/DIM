@@ -80,7 +80,7 @@ final class PageController
             'hub' => true,
             'tasks', 'users', 'training' => true,
             'slots', 'priorities', 'messages', 'company', 'logs' => $elevated,
-            'plans', 'matrix' => $platform,
+            'plans', 'matrix', 'holiday-themes' => $platform,
             default => false,
         };
         if (!$allowed) {
@@ -103,6 +103,7 @@ final class PageController
             'company' => 'Admin · Company',
             'plans' => 'Admin · Billing plans',
             'matrix' => 'Admin · Feature matrix',
+            'holiday-themes' => 'Admin · Holiday themes',
             'impersonate' => 'Admin · View as tenant',
             'create-company' => 'Admin · Create company',
             default => 'DoItMeow Admin',

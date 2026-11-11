@@ -65,7 +65,7 @@
                 <li><strong>“Today” for tasks</strong> — Open tasks, due dates, recurrence (day of week, day of month), and “completed today” use this calendar day in the <em>company</em> time zone, not the hosting server’s time zone.</li>
                 <li><strong>Reports</strong> — When you pick a date range, defaults align with company-local dates when your session provides the time zone.</li>
                 <li><strong>Footer clock</strong> — After company sign-in, the footer shows the <strong>current date and time</strong> in that same time zone and updates every second.</li>
-                <li><strong>Seasonal background</strong> — After PIN sign-in, many pages use a very light seasonal tint around <strong>US federal public holidays</strong> (four days before and after each holiday, in your company’s calendar). There is no separate holiday list page; which day counts as “today” still follows this same time zone.</li>
+                <li><strong>Seasonal background</strong> — After company sign-in, many pages can use a light seasonal tint around <strong>US federal public holidays</strong> (four days before and after each holiday, in your company’s calendar). Which day counts as “today” still follows this same time zone. Platform owners can turn this off, leave it automatic, or force one holiday look for every company under <a href="#admin">Admin → Holiday themes</a>.</li>
             </ul>
             <h3>US ZIP and weather</h3>
             <p>Admins can enter a <strong>US ZIP code</strong> (5 digits or ZIP+4) in <strong>Admin → Company</strong>. Leave it blank to turn weather off.</p>
@@ -135,6 +135,7 @@
                 <li><strong>People</strong> — Create users, roles, and PINs.</li>
                 <li><strong>Company</strong> — Company name, owner email, <strong>time zone</strong> (dropdown), <strong>US ZIP for weather</strong> (optional), header logo URL, default theme, and (for privileged roles) company login, plan, and account active flag.</li>
                 <li><strong>Plans / Feature matrix</strong> — Subscription level and which optional features (reports, training, chat, ads, etc.) are on for your tenant.</li>
+                <li><strong>Holiday themes</strong> (owner / super admin) — Site-wide seasonal backgrounds for all companies: <em>Automatic</em> follows the federal holiday calendar (±4 days), <em>Force</em> applies one built-in holiday look everywhere, or <em>Off</em> disables seasonal tints. Click a swatch to preview, then save.</li>
                 <li><strong>Training</strong> (when enabled) — Definitions, templates, and assigning training to users.</li>
                 <li><strong>Audit logs</strong> (when enabled) — History of important actions.</li>
             </ul>

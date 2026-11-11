@@ -86,7 +86,7 @@ if ($path === '/admin') {
     $pageController->admin($limitedMode, $migrationError, 'hub');
     exit;
 }
-if (preg_match('#^/admin/(impersonate|create-company|tasks|slots|priorities|messages|users|logs|training|company|plans|matrix)$#', $path, $adminPathMatch)) {
+if (preg_match('#^/admin/(impersonate|create-company|tasks|slots|priorities|messages|users|logs|training|company|plans|matrix|holiday-themes)$#', $path, $adminPathMatch)) {
     $pageController->admin($limitedMode, $migrationError, $adminPathMatch[1]);
     exit;
 }
@@ -262,6 +262,14 @@ if (str_starts_with($path, '/api/')) {
     }
     if ($method === 'POST' && $path === '/api/admin/feature-matrix') {
         $api->updateFeatureMatrix();
+        exit;
+    }
+    if ($method === 'GET' && $path === '/api/admin/holiday-theme') {
+        $api->holidayThemeSettings();
+        exit;
+    }
+    if ($method === 'POST' && $path === '/api/admin/holiday-theme') {
+        $api->updateHolidayThemeSettings();
         exit;
     }
     if ($method === 'GET' && $path === '/api/admin/tenants') {

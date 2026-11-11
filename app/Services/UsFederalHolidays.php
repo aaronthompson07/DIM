@@ -11,6 +11,11 @@ use DateTimeZone;
 /**
  * US federal public holidays (calendar dates / Monday rules) and “season” windows for UI theming.
  * Windows: 4 days before through 4 days after each holiday (9 days), inclusive.
+ *
+ * To add a holiday theme:
+ * 1. Add a key here (PRIORITY + holidaysForYear / skinCatalog).
+ * 2. Add matching light/dark CSS under body[data-holiday-skin="…"] in public/resources/css/app.css.
+ * 3. Platform owners can force that skin for all clients from Admin → Holiday themes.
  */
 final class UsFederalHolidays
 {
@@ -30,6 +35,65 @@ final class UsFederalHolidays
         'columbus' => 10,
         'veterans' => 11,
     ];
+
+    /**
+     * Catalog of built-in skins (CSS data-holiday-skin keys).
+     *
+     * @return list<array{key: string, name: string}>
+     */
+    public static function skinCatalog(): array
+    {
+        return [
+            ['key' => 'new_year', 'name' => "New Year's Day"],
+            ['key' => 'mlk', 'name' => 'Martin Luther King Jr. Day'],
+            ['key' => 'presidents', 'name' => "Washington's Birthday (Presidents' Day)"],
+            ['key' => 'memorial', 'name' => 'Memorial Day'],
+            ['key' => 'juneteenth', 'name' => 'Juneteenth'],
+            ['key' => 'independence', 'name' => 'Independence Day'],
+            ['key' => 'labor', 'name' => 'Labor Day'],
+            ['key' => 'columbus', 'name' => 'Columbus Day'],
+            ['key' => 'veterans', 'name' => 'Veterans Day'],
+            ['key' => 'thanksgiving', 'name' => 'Thanksgiving Day'],
+            ['key' => 'christmas', 'name' => 'Christmas Day'],
+        ];
+    }
+
+    public static function isValidSkin(string $skin): bool
+    {
+        foreach (self::skinCatalog() as $row) {
+            if ($row['key'] === $skin) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static function skinDisplayName(string $skin): string
+    {
+        foreach (self::skinCatalog() as $row) {
+            if ($row['key'] === $skin) {
+                return $row['name'];
+            }
+        }
+
+        return $skin;
+    }
+
+    /**
+     * Forced (manual) season payload for a known skin key.
+     *
+     * @return array{skin: string, holiday_name: string, holiday_date: string|null, days_from_holiday: int|null}
+     */
+    public static function forcedSeason(string $skin): array
+    {
+        return [
+            'skin' => $skin,
+            'holiday_name' => self::skinDisplayName($skin),
+            'holiday_date' => null,
+            'days_from_holiday' => null,
+        ];
+    }
 
     /**
      * @return list<array{key: string, name: string, date: string}>

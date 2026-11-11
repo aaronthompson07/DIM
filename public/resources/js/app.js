@@ -117,7 +117,7 @@
     document.body.classList.add(t === "dark" ? "theme-dark" : "theme-light");
   }
 
-  /** Sets body[data-holiday-skin] from server (US federal holiday ±4 days, company-local “today”). */
+  /** Sets body[data-holiday-skin] from server (platform mode: off / auto calendar / forced skin). */
   async function applyHolidaySkinFromApi() {
     try {
       const s = await get("/api/holidays/season");
@@ -1498,6 +1498,11 @@
     const systemMessageMaintenanceRow = document.getElementById("system-message-maintenance-row");
     const systemMessageMaintenanceHint = document.getElementById("system-message-maintenance-hint");
     const systemMessageList = document.getElementById("system-message-list");
+    const holidayThemeForm = document.getElementById("holiday-theme-form");
+    const holidayThemeMode = document.getElementById("holiday-theme-mode");
+    const holidayThemeSkin = document.getElementById("holiday-theme-skin");
+    const holidayThemeAutoPreview = document.getElementById("holiday-theme-auto-preview");
+    const holidayThemeSwatches = document.getElementById("holiday-theme-swatches");
 
     let currentConfig = null;
     let currentActorRole = "";
@@ -1551,6 +1556,7 @@
       set("hub-card-company", Boolean(config.can_manage_tenant));
       set("hub-card-plans", Boolean(config.can_manage_plans));
       set("hub-card-matrix", Boolean(config.can_manage_matrix));
+      set("hub-card-holiday-themes", Boolean(config.can_manage_holiday_themes));
       const reportsOk =
         Boolean(config.integrations?.features?.tasks_reports) && Boolean(config.can_view_reports);
       set("hub-card-reports", reportsOk);
@@ -2463,6 +2469,7 @@
       if (config.can_manage_time_slots) await loadSlotEditor();
       if (config.can_manage_priorities) await loadPriorityEditor();
       if (config.can_manage_system_messages) await loadSystemMessagesAdmin();
+      if (config.can_manage_holiday_themes) await loadHolidayThemeAdmin();
       if (config.can_manage_plans) renderPlansEditor(config);
       fillNewUserRoles();
       await loadUsersAdmin();
@@ -2704,6 +2711,92 @@
       }));
       const result = await post("/api/admin/feature-matrix", { entries });
       setMessageOk(result.ok, "Matrix saved.", "Failed.", result.message);
+    });
+
+    function syncHolidayThemeSkinRequired() {
+      if (!holidayThemeSkin || !holidayThemeMode) return;
+      const manual = holidayThemeMode.value === "manual";
+      holidayThemeSkin.required = manual;
+      holidayThemeSkin.disabled = holidayThemeMode.value === "off";
+    }
+
+    async function loadHolidayThemeAdmin() {
+      if (!holidayThemeForm || !currentConfig?.can_manage_holiday_themes) return;
+      const res = await get("/api/admin/holiday-theme");
+      if (!res.ok) {
+        setMessage(res.message || "Unable to load holiday themes.", "error");
+        return;
+      }
+      if (holidayThemeSkin) {
+        holidayThemeSkin.innerHTML = "";
+        const blank = document.createElement("option");
+        blank.value = "";
+        blank.textContent = "— Select a holiday —";
+        holidayThemeSkin.appendChild(blank);
+        (res.skins || []).forEach((s) => {
+          const o = document.createElement("option");
+          o.value = s.key;
+          o.textContent = s.name;
+          if (res.skin && s.key === res.skin) o.selected = true;
+          holidayThemeSkin.appendChild(o);
+        });
+      }
+      if (holidayThemeMode) {
+        holidayThemeMode.value = res.mode || "auto";
+      }
+      syncHolidayThemeSkinRequired();
+      if (holidayThemeAutoPreview) {
+        const ap = res.auto_preview;
+        if (ap && ap.skin) {
+          const when = ap.holiday_date ? ` (${ap.holiday_date})` : "";
+          holidayThemeAutoPreview.textContent = `Automatic preview for this company’s calendar today: ${ap.holiday_name}${when}.`;
+        } else {
+          holidayThemeAutoPreview.textContent =
+            "Automatic preview for this company’s calendar today: no holiday season is active (±4 days).";
+        }
+      }
+      if (holidayThemeSwatches) {
+        holidayThemeSwatches.innerHTML = "";
+        (res.skins || []).forEach((s) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "holiday-theme-swatch";
+          btn.dataset.skin = s.key;
+          btn.setAttribute("aria-label", `Preview ${s.name}`);
+          btn.innerHTML = `<span class="holiday-theme-swatch-label">${s.name}</span>`;
+          btn.addEventListener("click", () => {
+            if (holidayThemeMode) holidayThemeMode.value = "manual";
+            if (holidayThemeSkin) holidayThemeSkin.value = s.key;
+            syncHolidayThemeSkinRequired();
+            document.body.dataset.holidaySkin = s.key;
+          });
+          holidayThemeSwatches.appendChild(btn);
+        });
+      }
+    }
+
+    holidayThemeMode?.addEventListener("change", syncHolidayThemeSkinRequired);
+
+    holidayThemeForm?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!currentConfig?.can_manage_holiday_themes) return;
+      const mode = holidayThemeMode?.value || "auto";
+      const skin = holidayThemeSkin?.value || "";
+      if (mode === "manual" && !skin) {
+        setMessage("Choose a holiday theme when forcing a look for everyone.", "error");
+        return;
+      }
+      const result = await post("/api/admin/holiday-theme", { mode, skin });
+      setMessageOk(
+        result.ok,
+        result.message || "Holiday theme settings saved.",
+        "Failed to save holiday themes.",
+        result.message
+      );
+      if (result.ok) {
+        await loadHolidayThemeAdmin();
+        await applyHolidaySkinFromApi();
+      }
     });
 
     function resetTrainingDefForm() {

@@ -98,6 +98,11 @@ $adminPanelVisible = static function (string $panel) use ($adminSection): bool {
                         <p class="muted admin-hub-card-desc">Map product modules to each plan so upgrades unlock the right options for customers.</p>
                         <a class="ghost admin-hub-external" href="/admin/matrix">Open feature matrix</a>
                     </article>
+                    <article class="card admin-hub-card hidden" id="hub-card-holiday-themes">
+                        <h3 class="admin-hub-card-title">Holiday themes</h3>
+                        <p class="muted admin-hub-card-desc">Turn seasonal backgrounds on or off for every company, or force one holiday look site-wide.</p>
+                        <a class="ghost admin-hub-external" href="/admin/holiday-themes">Open holiday themes</a>
+                    </article>
                     <article class="card admin-hub-card" id="hub-card-support">
                         <h3 class="admin-hub-card-title">Support</h3>
                         <p class="muted admin-hub-card-desc">Open a ticket for your organization: describe the issue, set priority, and attach a screenshot if it helps.</p>
@@ -519,6 +524,30 @@ $adminPanelVisible = static function (string $panel) use ($adminSection): bool {
                 <p class="muted form-hint">Turn on <strong>Reports</strong> for the reports page (managers and above only). Turn on <strong>Employee training</strong> (<code>training.employee</code>) for training definitions, templates, assignments, and the Training link. For <strong>ArrowChat</strong>: enable the ArrowChat row here for the plan—the app injects the autoload script in the footer when a company session is active (optional env override <code>ARROWCHAT_AUTOLOAD_URL</code>). For Google ads: set <code>GOOGLE_ADSENSE_CLIENT</code> and <code>GOOGLE_ADSENSE_SLOT_DASHBOARD</code>, keep <strong>Show ads</strong> on the billing plan, and leave <strong>Ad-Free Experience</strong> unchecked for ad-supported tiers.</p>
                 <div id="feature-matrix-wrap" class="stack"></div>
                 <button type="button" id="save-feature-matrix">Save matrix</button>
+            </div>
+        </div>
+
+        <div class="admin-panel<?= $adminPanelVisible('holiday-themes') ? '' : ' hidden' ?>" id="panel-holiday-themes" data-panel="holiday-themes">
+            <div class="card">
+                <h2>Holiday themes</h2>
+                <p class="muted">Control seasonal page backgrounds for <strong>all companies</strong>. Built-in themes cover US federal holidays (light and dark variants).</p>
+                <form id="holiday-theme-form" class="stack">
+                    <label for="holiday-theme-mode">Mode</label>
+                    <select id="holiday-theme-mode" required>
+                        <option value="auto">Automatic (calendar ±4 days)</option>
+                        <option value="manual">Force one theme for everyone</option>
+                        <option value="off">Off (no seasonal backgrounds)</option>
+                    </select>
+                    <label for="holiday-theme-skin">Theme (required when mode is “Force”)</label>
+                    <select id="holiday-theme-skin">
+                        <option value="">— Select a holiday —</option>
+                    </select>
+                    <p class="muted form-hint" id="holiday-theme-auto-preview"></p>
+                    <div class="row-actions">
+                        <button type="submit" id="holiday-theme-save">Save for all companies</button>
+                    </div>
+                </form>
+                <div id="holiday-theme-swatches" class="holiday-theme-swatches" aria-label="Theme previews"></div>
             </div>
         </div>
     </div>

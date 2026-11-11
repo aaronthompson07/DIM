@@ -10,6 +10,7 @@ use App\Core\Auth;
 use App\Core\TenantTime;
 use App\Services\AppointmentBoardService;
 use App\Services\AuditLogger;
+use App\Services\PlatformSettings;
 use App\Services\UsFederalHolidays;
 use App\Services\WeatherAlertsService;
 use PDO;
@@ -1009,6 +1010,7 @@ final class ApiController
             'can_view_reports' => Auth::canViewReports(),
             'can_view_all_support' => in_array($role, ['owner', 'super_admin'], true),
             'can_manage_matrix' => in_array($role, ['owner', 'super_admin'], true),
+            'can_manage_holiday_themes' => in_array($role, ['owner', 'super_admin'], true),
             'can_manage_tenant' => in_array($role, ['owner', 'super_admin', 'tenant_admin'], true),
             'can_manage_time_slots' => in_array($role, ['owner', 'super_admin', 'tenant_admin'], true),
             'can_manage_priorities' => in_array($role, ['owner', 'super_admin', 'tenant_admin'], true),
@@ -3845,11 +3847,39 @@ final class ApiController
         json_response(['ok' => true, 'board_public_key' => $newKey]);
     }
 
-    /** Active US federal holiday “season” for themed page background (±4 days), using company-local today. */
+    /** Active holiday “season” for themed page background; respects platform owner mode (off / auto / manual). */
     public function holidaysSeason(): void
     {
         if (empty($_SESSION['tenant_id'])) {
-            json_response(['ok' => true, 'skin' => null]);
+            json_response(['ok' => true, 'skin' => null, 'mode' => null]);
+            return;
+        }
+
+        $mode = PlatformSettings::get($this->pdo, PlatformSettings::HOLIDAY_THEME_MODE, PlatformSettings::MODE_AUTO);
+        if (!in_array($mode, [PlatformSettings::MODE_OFF, PlatformSettings::MODE_AUTO, PlatformSettings::MODE_MANUAL], true)) {
+            $mode = PlatformSettings::MODE_AUTO;
+        }
+
+        if ($mode === PlatformSettings::MODE_OFF) {
+            json_response(['ok' => true, 'skin' => null, 'mode' => $mode]);
+            return;
+        }
+
+        if ($mode === PlatformSettings::MODE_MANUAL) {
+            $skin = PlatformSettings::get($this->pdo, PlatformSettings::HOLIDAY_THEME_SKIN, '');
+            if ($skin === '' || !UsFederalHolidays::isValidSkin($skin)) {
+                json_response(['ok' => true, 'skin' => null, 'mode' => $mode]);
+                return;
+            }
+            $forced = UsFederalHolidays::forcedSeason($skin);
+            json_response([
+                'ok' => true,
+                'mode' => $mode,
+                'skin' => $forced['skin'],
+                'holiday_name' => $forced['holiday_name'],
+                'holiday_date' => $forced['holiday_date'],
+                'days_from_holiday' => $forced['days_from_holiday'],
+            ]);
             return;
         }
 
@@ -3857,16 +3887,106 @@ final class ApiController
         $today = TenantTime::todayYmd($this->pdo, $tenantId);
         $season = UsFederalHolidays::activeSeasonForDate($today);
         if ($season === null) {
-            json_response(['ok' => true, 'skin' => null]);
+            json_response(['ok' => true, 'skin' => null, 'mode' => $mode]);
             return;
         }
 
         json_response([
             'ok' => true,
+            'mode' => $mode,
             'skin' => $season['skin'],
             'holiday_name' => $season['holiday_name'],
             'holiday_date' => $season['holiday_date'],
             'days_from_holiday' => $season['days_from_holiday'],
+        ]);
+    }
+
+    /** Owner / super_admin: read global holiday theme mode and available skins. */
+    public function holidayThemeSettings(): void
+    {
+        if (!Auth::requireUser()) {
+            json_response(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+        if (!$this->canBypassTenantMaintenanceWriteLock()) {
+            json_response(['ok' => false, 'message' => 'Forbidden'], 403);
+            return;
+        }
+
+        $mode = PlatformSettings::get($this->pdo, PlatformSettings::HOLIDAY_THEME_MODE, PlatformSettings::MODE_AUTO);
+        if (!in_array($mode, [PlatformSettings::MODE_OFF, PlatformSettings::MODE_AUTO, PlatformSettings::MODE_MANUAL], true)) {
+            $mode = PlatformSettings::MODE_AUTO;
+        }
+        $skin = PlatformSettings::get($this->pdo, PlatformSettings::HOLIDAY_THEME_SKIN, '');
+        if ($skin !== '' && !UsFederalHolidays::isValidSkin($skin)) {
+            $skin = '';
+        }
+
+        $autoPreview = null;
+        $tenantId = Auth::effectiveTenantId();
+        if ($tenantId > 0) {
+            $today = TenantTime::todayYmd($this->pdo, $tenantId);
+            $autoPreview = UsFederalHolidays::activeSeasonForDate($today);
+        }
+
+        json_response([
+            'ok' => true,
+            'mode' => $mode,
+            'skin' => $skin !== '' ? $skin : null,
+            'skins' => UsFederalHolidays::skinCatalog(),
+            'auto_preview' => $autoPreview,
+        ]);
+    }
+
+    /** Owner / super_admin: set global holiday theme for all clients. */
+    public function updateHolidayThemeSettings(): void
+    {
+        if (!Auth::requireUser()) {
+            json_response(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+        if (!$this->canBypassTenantMaintenanceWriteLock()) {
+            json_response(['ok' => false, 'message' => 'Forbidden'], 403);
+            return;
+        }
+        if ($this->limitedMode) {
+            json_response(['ok' => false, 'message' => 'System is in limited mode due to maintenance.'], 503);
+            return;
+        }
+
+        $input = $this->input();
+        $mode = strtolower(trim((string) ($input['mode'] ?? '')));
+        if (!in_array($mode, [PlatformSettings::MODE_OFF, PlatformSettings::MODE_AUTO, PlatformSettings::MODE_MANUAL], true)) {
+            json_response(['ok' => false, 'message' => 'Mode must be off, auto, or manual.'], 422);
+            return;
+        }
+
+        $skin = trim((string) ($input['skin'] ?? ''));
+        if ($mode === PlatformSettings::MODE_MANUAL) {
+            if ($skin === '' || !UsFederalHolidays::isValidSkin($skin)) {
+                json_response(['ok' => false, 'message' => 'Choose a valid holiday theme when mode is manual.'], 422);
+                return;
+            }
+        } else {
+            $skin = ($skin !== '' && UsFederalHolidays::isValidSkin($skin)) ? $skin : '';
+        }
+
+        $userId = (int) ($_SESSION['user_id'] ?? 0) ?: null;
+        PlatformSettings::setMany($this->pdo, [
+            PlatformSettings::HOLIDAY_THEME_MODE => $mode,
+            PlatformSettings::HOLIDAY_THEME_SKIN => $skin,
+        ], $userId);
+
+        AuditLogger::log($this->pdo, Auth::homeTenantId(), $userId, 'admin.holiday_theme.update', [
+            'mode' => $mode,
+            'skin' => $skin !== '' ? $skin : null,
+        ]);
+
+        json_response([
+            'ok' => true,
+            'mode' => $mode,
+            'skin' => $skin !== '' ? $skin : null,
+            'message' => 'Holiday theme settings saved for all companies.',
         ]);
     }
 
