@@ -1993,6 +1993,10 @@ body.auth-page-register .auth-page-card {
   font-size: 15px;
 }
 
+/* Admin: holiday theme picker */
+#holiday-theme-skin.is-muted-field {
+  opacity: 0.65;
+}
 /* Admin: holiday theme picker swatches */
 .holiday-theme-swatches {
   display: grid;

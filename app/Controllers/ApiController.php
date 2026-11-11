@@ -3949,10 +3949,6 @@ final class ApiController
             json_response(['ok' => false, 'message' => 'Forbidden'], 403);
             return;
         }
-        if ($this->limitedMode) {
-            json_response(['ok' => false, 'message' => 'System is in limited mode due to maintenance.'], 503);
-            return;
-        }
 
         $input = $this->input();
         $mode = strtolower(trim((string) ($input['mode'] ?? '')));
@@ -3972,15 +3968,22 @@ final class ApiController
         }
 
         $userId = (int) ($_SESSION['user_id'] ?? 0) ?: null;
-        PlatformSettings::setMany($this->pdo, [
-            PlatformSettings::HOLIDAY_THEME_MODE => $mode,
-            PlatformSettings::HOLIDAY_THEME_SKIN => $skin,
-        ], $userId);
-
-        AuditLogger::log($this->pdo, Auth::homeTenantId(), $userId, 'admin.holiday_theme.update', [
-            'mode' => $mode,
-            'skin' => $skin !== '' ? $skin : null,
-        ]);
+        try {
+            PlatformSettings::setMany($this->pdo, [
+                PlatformSettings::HOLIDAY_THEME_MODE => $mode,
+                PlatformSettings::HOLIDAY_THEME_SKIN => $skin,
+            ], $userId);
+            AuditLogger::log($this->pdo, Auth::homeTenantId(), $userId, 'admin.holiday_theme.update', [
+                'mode' => $mode,
+                'skin' => $skin !== '' ? $skin : null,
+            ]);
+        } catch (\Throwable $e) {
+            json_response([
+                'ok' => false,
+                'message' => 'Unable to save holiday theme settings: ' . $e->getMessage(),
+            ], 500);
+            return;
+        }
 
         json_response([
             'ok' => true,

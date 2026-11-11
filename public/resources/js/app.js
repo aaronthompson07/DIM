@@ -2715,9 +2715,24 @@
 
     function syncHolidayThemeSkinRequired() {
       if (!holidayThemeSkin || !holidayThemeMode) return;
-      const manual = holidayThemeMode.value === "manual";
-      holidayThemeSkin.required = manual;
-      holidayThemeSkin.disabled = holidayThemeMode.value === "off";
+      // Keep the select enabled so saves always read its value; only hint when Force is needed.
+      holidayThemeSkin.required = false;
+      holidayThemeSkin.disabled = false;
+      holidayThemeSkin.classList.toggle("is-muted-field", holidayThemeMode.value === "off");
+    }
+
+    function ensureHolidayThemeSkinOption(skinKey, label) {
+      if (!holidayThemeSkin || !skinKey) return;
+      const exists = Array.from(holidayThemeSkin.options).some((o) => o.value === skinKey);
+      if (exists) {
+        holidayThemeSkin.value = skinKey;
+        return;
+      }
+      const o = document.createElement("option");
+      o.value = skinKey;
+      o.textContent = label || skinKey;
+      holidayThemeSkin.appendChild(o);
+      holidayThemeSkin.value = skinKey;
     }
 
     function wireHolidayThemeSwatchClicks(root) {
@@ -2728,7 +2743,9 @@
           const skin = btn.getAttribute("data-skin") || "";
           if (!skin) return;
           if (holidayThemeMode) holidayThemeMode.value = "manual";
-          if (holidayThemeSkin) holidayThemeSkin.value = skin;
+          const label =
+            btn.querySelector(".holiday-theme-swatch-label")?.textContent?.trim() || skin;
+          ensureHolidayThemeSkinOption(skin, label);
           syncHolidayThemeSkinRequired();
           document.body.dataset.holidaySkin = skin;
         });
@@ -2738,9 +2755,19 @@
     async function loadHolidayThemeAdmin() {
       if (!holidayThemeForm || !currentConfig?.can_manage_holiday_themes) return;
       wireHolidayThemeSwatchClicks(holidayThemeSwatches);
-      const res = await get("/api/admin/holiday-theme");
-      if (!res.ok) {
-        setMessage(res.message || "Unable to load holiday themes.", "error");
+      let res;
+      try {
+        res = await get("/api/admin/holiday-theme");
+      } catch {
+        setMessage("Unable to load holiday themes (network or server error).", "error");
+        if (holidayThemeAutoPreview) {
+          holidayThemeAutoPreview.textContent =
+            "Could not load saved settings from the server. Theme swatches below still work for preview.";
+        }
+        return;
+      }
+      if (!res || !res.ok) {
+        setMessage((res && res.message) || "Unable to load holiday themes.", "error");
         if (holidayThemeAutoPreview) {
           holidayThemeAutoPreview.textContent =
             "Could not load saved settings from the server. Theme swatches below still work for preview.";
@@ -2756,9 +2783,11 @@
         blank.textContent = "— Select a holiday —";
         holidayThemeSkin.appendChild(blank);
         skins.forEach((s) => {
+          const key = s.key || s.skin_key || "";
+          if (!key) return;
           const o = document.createElement("option");
-          o.value = s.key;
-          o.textContent = s.description ? `${s.name} — ${s.description}` : s.name;
+          o.value = key;
+          o.textContent = s.description ? `${s.name} — ${s.description}` : s.name || key;
           holidayThemeSkin.appendChild(o);
         });
         if (previous) holidayThemeSkin.value = previous;
@@ -2786,14 +2815,16 @@
       if (holidayThemeSwatches && skins) {
         holidayThemeSwatches.innerHTML = "";
         skins.forEach((s) => {
+          const key = s.key || s.skin_key || "";
+          if (!key) return;
           const btn = document.createElement("button");
           btn.type = "button";
           btn.className = "holiday-theme-swatch";
-          btn.dataset.skin = s.key;
-          btn.setAttribute("aria-label", `Preview ${s.name}`);
+          btn.dataset.skin = key;
+          btn.setAttribute("aria-label", `Preview ${s.name || key}`);
           const label = document.createElement("span");
           label.className = "holiday-theme-swatch-label";
-          label.textContent = s.name;
+          label.textContent = s.name || key;
           btn.appendChild(label);
           if (s.description) {
             const desc = document.createElement("span");
@@ -2807,29 +2838,55 @@
       }
     }
 
+    async function saveHolidayThemeSettings() {
+      if (!currentConfig?.can_manage_holiday_themes) {
+        setMessage("Only the site owner or super admin can save holiday themes for all companies.", "error");
+        return;
+      }
+      syncHolidayThemeSkinRequired();
+      const mode = holidayThemeMode?.value || "auto";
+      let skin = (holidayThemeSkin?.value || "").trim();
+      if (mode === "manual" && !skin) {
+        skin = (document.body.dataset.holidaySkin || "").trim();
+        if (skin) ensureHolidayThemeSkinOption(skin, skin);
+      }
+      if (mode === "manual" && !skin) {
+        setMessage("Choose a holiday theme when forcing a look for everyone.", "error");
+        holidayThemeSkin?.focus();
+        return;
+      }
+      const saveBtn = document.getElementById("holiday-theme-save");
+      if (saveBtn) saveBtn.disabled = true;
+      setMessage("Saving holiday theme for all companies…", "info");
+      try {
+        const result = await post("/api/admin/holiday-theme", { mode, skin });
+        setMessageOk(
+          Boolean(result && result.ok),
+          (result && result.message) || "Holiday theme settings saved.",
+          "Failed to save holiday themes.",
+          result && result.message
+        );
+        if (result && result.ok) {
+          await loadHolidayThemeAdmin();
+          await applyHolidaySkinFromApi();
+        }
+      } catch (err) {
+        setMessage("Failed to save holiday themes (network or server error).", "error");
+      } finally {
+        if (saveBtn) saveBtn.disabled = false;
+      }
+    }
+
     holidayThemeMode?.addEventListener("change", syncHolidayThemeSkinRequired);
     wireHolidayThemeSwatchClicks(holidayThemeSwatches);
 
     holidayThemeForm?.addEventListener("submit", async (e) => {
       e.preventDefault();
-      if (!currentConfig?.can_manage_holiday_themes) return;
-      const mode = holidayThemeMode?.value || "auto";
-      const skin = holidayThemeSkin?.value || "";
-      if (mode === "manual" && !skin) {
-        setMessage("Choose a holiday theme when forcing a look for everyone.", "error");
-        return;
-      }
-      const result = await post("/api/admin/holiday-theme", { mode, skin });
-      setMessageOk(
-        result.ok,
-        result.message || "Holiday theme settings saved.",
-        "Failed to save holiday themes.",
-        result.message
-      );
-      if (result.ok) {
-        await loadHolidayThemeAdmin();
-        await applyHolidaySkinFromApi();
-      }
+      await saveHolidayThemeSettings();
+    });
+    document.getElementById("holiday-theme-save")?.addEventListener("click", async (e) => {
+      e.preventDefault();
+      await saveHolidayThemeSettings();
     });
 
     function resetTrainingDefForm() {

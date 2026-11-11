@@ -555,7 +555,7 @@ $adminPanelVisible = static function (string $panel) use ($adminSection): bool {
                     </select>
                     <p class="muted form-hint" id="holiday-theme-auto-preview">Loading current settings…</p>
                     <div class="row-actions">
-                        <button type="submit" id="holiday-theme-save">Save for all companies</button>
+                        <button type="button" id="holiday-theme-save">Save for all companies</button>
                     </div>
                 </form>
                 <h3>Available themes</h3>

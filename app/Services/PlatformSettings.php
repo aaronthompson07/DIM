@@ -25,6 +25,7 @@ final class PlatformSettings
 
     public static function get(PDO $pdo, string $key, string $default = ''): string
     {
+        self::ensureSchema($pdo);
         self::ensureLoaded($pdo);
 
         return self::$cache[$key] ?? $default;
@@ -32,6 +33,7 @@ final class PlatformSettings
 
     public static function set(PDO $pdo, string $key, string $value, ?int $userId = null): void
     {
+        self::ensureSchema($pdo);
         $stmt = $pdo->prepare(
             'INSERT INTO platform_settings (setting_key, setting_value, updated_by_user_id)
              VALUES (:k, :v, :u)
@@ -47,6 +49,26 @@ final class PlatformSettings
         ]);
         self::$cache[$key] = $value;
         self::$loaded = true;
+    }
+
+    /** Create platform_settings if a migration was skipped or limited-mode bypass left the table missing. */
+    public static function ensureSchema(PDO $pdo): void
+    {
+        static $ready = false;
+        if ($ready) {
+            return;
+        }
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS platform_settings (
+                setting_key VARCHAR(64) NOT NULL,
+                setting_value TEXT NOT NULL,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                updated_by_user_id BIGINT UNSIGNED NULL,
+                PRIMARY KEY (setting_key)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+        $ready = true;
+        self::$loaded = false;
     }
 
     /**
