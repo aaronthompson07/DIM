@@ -3867,11 +3867,11 @@ final class ApiController
 
         if ($mode === PlatformSettings::MODE_MANUAL) {
             $skin = PlatformSettings::get($this->pdo, PlatformSettings::HOLIDAY_THEME_SKIN, '');
-            if ($skin === '' || !UsFederalHolidays::isValidSkin($skin)) {
+            if ($skin === '' || !UsFederalHolidays::isValidSkin($skin, $this->pdo)) {
                 json_response(['ok' => true, 'skin' => null, 'mode' => $mode]);
                 return;
             }
-            $forced = UsFederalHolidays::forcedSeason($skin);
+            $forced = UsFederalHolidays::forcedSeason($skin, $this->pdo);
             json_response([
                 'ok' => true,
                 'mode' => $mode,
@@ -3918,7 +3918,7 @@ final class ApiController
             $mode = PlatformSettings::MODE_AUTO;
         }
         $skin = PlatformSettings::get($this->pdo, PlatformSettings::HOLIDAY_THEME_SKIN, '');
-        if ($skin !== '' && !UsFederalHolidays::isValidSkin($skin)) {
+        if ($skin !== '' && !UsFederalHolidays::isValidSkin($skin, $this->pdo)) {
             $skin = '';
         }
 
@@ -3933,7 +3933,7 @@ final class ApiController
             'ok' => true,
             'mode' => $mode,
             'skin' => $skin !== '' ? $skin : null,
-            'skins' => UsFederalHolidays::skinCatalog(),
+            'skins' => UsFederalHolidays::skinCatalog($this->pdo),
             'auto_preview' => $autoPreview,
         ]);
     }
@@ -3963,12 +3963,12 @@ final class ApiController
 
         $skin = trim((string) ($input['skin'] ?? ''));
         if ($mode === PlatformSettings::MODE_MANUAL) {
-            if ($skin === '' || !UsFederalHolidays::isValidSkin($skin)) {
+            if ($skin === '' || !UsFederalHolidays::isValidSkin($skin, $this->pdo)) {
                 json_response(['ok' => false, 'message' => 'Choose a valid holiday theme when mode is manual.'], 422);
                 return;
             }
         } else {
-            $skin = ($skin !== '' && UsFederalHolidays::isValidSkin($skin)) ? $skin : '';
+            $skin = ($skin !== '' && UsFederalHolidays::isValidSkin($skin, $this->pdo)) ? $skin : '';
         }
 
         $userId = (int) ($_SESSION['user_id'] ?? 0) ?: null;

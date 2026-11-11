@@ -2720,26 +2720,49 @@
       holidayThemeSkin.disabled = holidayThemeMode.value === "off";
     }
 
+    function wireHolidayThemeSwatchClicks(root) {
+      root?.querySelectorAll(".holiday-theme-swatch[data-skin]").forEach((btn) => {
+        if (btn.dataset.wired === "1") return;
+        btn.dataset.wired = "1";
+        btn.addEventListener("click", () => {
+          const skin = btn.getAttribute("data-skin") || "";
+          if (!skin) return;
+          if (holidayThemeMode) holidayThemeMode.value = "manual";
+          if (holidayThemeSkin) holidayThemeSkin.value = skin;
+          syncHolidayThemeSkinRequired();
+          document.body.dataset.holidaySkin = skin;
+        });
+      });
+    }
+
     async function loadHolidayThemeAdmin() {
       if (!holidayThemeForm || !currentConfig?.can_manage_holiday_themes) return;
+      wireHolidayThemeSwatchClicks(holidayThemeSwatches);
       const res = await get("/api/admin/holiday-theme");
       if (!res.ok) {
         setMessage(res.message || "Unable to load holiday themes.", "error");
+        if (holidayThemeAutoPreview) {
+          holidayThemeAutoPreview.textContent =
+            "Could not load saved settings from the server. Theme swatches below still work for preview.";
+        }
         return;
       }
-      if (holidayThemeSkin) {
+      const skins = Array.isArray(res.skins) && res.skins.length ? res.skins : null;
+      if (holidayThemeSkin && skins) {
+        const previous = holidayThemeSkin.value || res.skin || "";
         holidayThemeSkin.innerHTML = "";
         const blank = document.createElement("option");
         blank.value = "";
         blank.textContent = "— Select a holiday —";
         holidayThemeSkin.appendChild(blank);
-        (res.skins || []).forEach((s) => {
+        skins.forEach((s) => {
           const o = document.createElement("option");
           o.value = s.key;
-          o.textContent = s.name;
-          if (res.skin && s.key === res.skin) o.selected = true;
+          o.textContent = s.description ? `${s.name} — ${s.description}` : s.name;
           holidayThemeSkin.appendChild(o);
         });
+        if (previous) holidayThemeSkin.value = previous;
+        if (res.skin) holidayThemeSkin.value = res.skin;
       }
       if (holidayThemeMode) {
         holidayThemeMode.value = res.mode || "auto";
@@ -2747,35 +2770,45 @@
       syncHolidayThemeSkinRequired();
       if (holidayThemeAutoPreview) {
         const ap = res.auto_preview;
+        const modeLabel =
+          res.mode === "manual"
+            ? "Forced theme mode is on for all companies."
+            : res.mode === "off"
+              ? "Holiday themes are currently off for all companies."
+              : "Automatic mode is on for all companies.";
         if (ap && ap.skin) {
           const when = ap.holiday_date ? ` (${ap.holiday_date})` : "";
-          holidayThemeAutoPreview.textContent = `Automatic preview for this company’s calendar today: ${ap.holiday_name}${when}.`;
+          holidayThemeAutoPreview.textContent = `${modeLabel} Calendar preview for this company today: ${ap.holiday_name}${when}.`;
         } else {
-          holidayThemeAutoPreview.textContent =
-            "Automatic preview for this company’s calendar today: no holiday season is active (±4 days).";
+          holidayThemeAutoPreview.textContent = `${modeLabel} No automatic holiday season is active for this company today (±4 days).`;
         }
       }
-      if (holidayThemeSwatches) {
+      if (holidayThemeSwatches && skins) {
         holidayThemeSwatches.innerHTML = "";
-        (res.skins || []).forEach((s) => {
+        skins.forEach((s) => {
           const btn = document.createElement("button");
           btn.type = "button";
           btn.className = "holiday-theme-swatch";
           btn.dataset.skin = s.key;
           btn.setAttribute("aria-label", `Preview ${s.name}`);
-          btn.innerHTML = `<span class="holiday-theme-swatch-label">${s.name}</span>`;
-          btn.addEventListener("click", () => {
-            if (holidayThemeMode) holidayThemeMode.value = "manual";
-            if (holidayThemeSkin) holidayThemeSkin.value = s.key;
-            syncHolidayThemeSkinRequired();
-            document.body.dataset.holidaySkin = s.key;
-          });
+          const label = document.createElement("span");
+          label.className = "holiday-theme-swatch-label";
+          label.textContent = s.name;
+          btn.appendChild(label);
+          if (s.description) {
+            const desc = document.createElement("span");
+            desc.className = "holiday-theme-swatch-desc";
+            desc.textContent = s.description;
+            btn.appendChild(desc);
+          }
           holidayThemeSwatches.appendChild(btn);
         });
+        wireHolidayThemeSwatchClicks(holidayThemeSwatches);
       }
     }
 
     holidayThemeMode?.addEventListener("change", syncHolidayThemeSkinRequired);
+    wireHolidayThemeSwatchClicks(holidayThemeSwatches);
 
     holidayThemeForm?.addEventListener("submit", async (e) => {
       e.preventDefault();

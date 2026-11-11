@@ -7,15 +7,17 @@ namespace App\Services;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
+use PDO;
 
 /**
  * US federal public holidays (calendar dates / Monday rules) and “season” windows for UI theming.
  * Windows: 4 days before through 4 days after each holiday (9 days), inclusive.
  *
  * To add a holiday theme:
- * 1. Add a key here (PRIORITY + holidaysForYear / skinCatalog).
+ * 1. Insert a row into holiday_themes (and keep the built-in fallback catalog in sync).
  * 2. Add matching light/dark CSS under body[data-holiday-skin="…"] in public/resources/css/app.css.
- * 3. Platform owners can force that skin for all clients from Admin → Holiday themes.
+ * 3. Add calendar rules in holidaysForYear() / PRIORITY when it should auto-activate.
+ * 4. Platform owners can force that skin for all clients from Admin → Holiday themes.
  */
 final class UsFederalHolidays
 {
@@ -37,30 +39,66 @@ final class UsFederalHolidays
     ];
 
     /**
-     * Catalog of built-in skins (CSS data-holiday-skin keys).
+     * Built-in fallback when the holiday_themes table is unavailable.
      *
-     * @return list<array{key: string, name: string}>
+     * @return list<array{key: string, name: string, description: string|null}>
      */
-    public static function skinCatalog(): array
+    public static function builtInSkinCatalog(): array
     {
         return [
-            ['key' => 'new_year', 'name' => "New Year's Day"],
-            ['key' => 'mlk', 'name' => 'Martin Luther King Jr. Day'],
-            ['key' => 'presidents', 'name' => "Washington's Birthday (Presidents' Day)"],
-            ['key' => 'memorial', 'name' => 'Memorial Day'],
-            ['key' => 'juneteenth', 'name' => 'Juneteenth'],
-            ['key' => 'independence', 'name' => 'Independence Day'],
-            ['key' => 'labor', 'name' => 'Labor Day'],
-            ['key' => 'columbus', 'name' => 'Columbus Day'],
-            ['key' => 'veterans', 'name' => 'Veterans Day'],
-            ['key' => 'thanksgiving', 'name' => 'Thanksgiving Day'],
-            ['key' => 'christmas', 'name' => 'Christmas Day'],
+            ['key' => 'new_year', 'name' => "New Year's Day", 'description' => 'Gold and midnight celebration tones'],
+            ['key' => 'mlk', 'name' => 'Martin Luther King Jr. Day', 'description' => 'Purple and warm gold accents'],
+            ['key' => 'presidents', 'name' => "Presidents' Day", 'description' => 'Red and blue civic tones'],
+            ['key' => 'memorial', 'name' => 'Memorial Day', 'description' => 'Red and blue remembrance tones'],
+            ['key' => 'juneteenth', 'name' => 'Juneteenth', 'description' => 'Red, green, and gold celebration tones'],
+            ['key' => 'independence', 'name' => 'Independence Day', 'description' => 'Red, white, and blue fireworks tones'],
+            ['key' => 'labor', 'name' => 'Labor Day', 'description' => 'Late-summer amber and blue'],
+            ['key' => 'columbus', 'name' => 'Columbus Day', 'description' => 'Ocean blue and gold exploration tones'],
+            ['key' => 'veterans', 'name' => 'Veterans Day', 'description' => 'Honoring red and navy tones'],
+            ['key' => 'thanksgiving', 'name' => 'Thanksgiving Day', 'description' => 'Harvest amber and brown'],
+            ['key' => 'christmas', 'name' => 'Christmas Day', 'description' => 'Evergreen, crimson, and soft gold'],
         ];
     }
 
-    public static function isValidSkin(string $skin): bool
+    /**
+     * Catalog of skins from holiday_themes when available, else built-in fallback.
+     *
+     * @return list<array{key: string, name: string, description: string|null}>
+     */
+    public static function skinCatalog(?PDO $pdo = null): array
     {
-        foreach (self::skinCatalog() as $row) {
+        if ($pdo instanceof PDO) {
+            try {
+                $stmt = $pdo->query(
+                    'SELECT skin_key, display_name, description
+                     FROM holiday_themes
+                     WHERE is_enabled = 1
+                     ORDER BY sort_order ASC, id ASC'
+                );
+                if ($stmt !== false) {
+                    $rows = [];
+                    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                        $rows[] = [
+                            'key' => (string) $row['skin_key'],
+                            'name' => (string) $row['display_name'],
+                            'description' => isset($row['description']) ? (string) $row['description'] : null,
+                        ];
+                    }
+                    if ($rows !== []) {
+                        return $rows;
+                    }
+                }
+            } catch (\Throwable) {
+                // Fall through to built-in catalog.
+            }
+        }
+
+        return self::builtInSkinCatalog();
+    }
+
+    public static function isValidSkin(string $skin, ?PDO $pdo = null): bool
+    {
+        foreach (self::skinCatalog($pdo) as $row) {
             if ($row['key'] === $skin) {
                 return true;
             }
@@ -69,9 +107,9 @@ final class UsFederalHolidays
         return false;
     }
 
-    public static function skinDisplayName(string $skin): string
+    public static function skinDisplayName(string $skin, ?PDO $pdo = null): string
     {
-        foreach (self::skinCatalog() as $row) {
+        foreach (self::skinCatalog($pdo) as $row) {
             if ($row['key'] === $skin) {
                 return $row['name'];
             }
@@ -85,11 +123,11 @@ final class UsFederalHolidays
      *
      * @return array{skin: string, holiday_name: string, holiday_date: string|null, days_from_holiday: int|null}
      */
-    public static function forcedSeason(string $skin): array
+    public static function forcedSeason(string $skin, ?PDO $pdo = null): array
     {
         return [
             'skin' => $skin,
-            'holiday_name' => self::skinDisplayName($skin),
+            'holiday_name' => self::skinDisplayName($skin, $pdo),
             'holiday_date' => null,
             'days_from_holiday' => null,
         ];

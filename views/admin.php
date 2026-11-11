@@ -530,7 +530,7 @@ $adminPanelVisible = static function (string $panel) use ($adminSection): bool {
         <div class="admin-panel<?= $adminPanelVisible('holiday-themes') ? '' : ' hidden' ?>" id="panel-holiday-themes" data-panel="holiday-themes">
             <div class="card">
                 <h2>Holiday themes</h2>
-                <p class="muted">Control seasonal page backgrounds for <strong>all companies</strong>. Built-in themes cover US federal holidays (light and dark variants).</p>
+                <p class="muted">Control seasonal page backgrounds for <strong>all companies</strong>. Eleven US federal holiday themes are available (light and dark variants). Click a swatch to preview, choose <strong>Force</strong>, then save.</p>
                 <form id="holiday-theme-form" class="stack">
                     <label for="holiday-theme-mode">Mode</label>
                     <select id="holiday-theme-mode" required>
@@ -541,13 +541,37 @@ $adminPanelVisible = static function (string $panel) use ($adminSection): bool {
                     <label for="holiday-theme-skin">Theme (required when mode is “Force”)</label>
                     <select id="holiday-theme-skin">
                         <option value="">— Select a holiday —</option>
+                        <option value="new_year">New Year's Day</option>
+                        <option value="mlk">Martin Luther King Jr. Day</option>
+                        <option value="presidents">Presidents' Day</option>
+                        <option value="memorial">Memorial Day</option>
+                        <option value="juneteenth">Juneteenth</option>
+                        <option value="independence">Independence Day</option>
+                        <option value="labor">Labor Day</option>
+                        <option value="columbus">Columbus Day</option>
+                        <option value="veterans">Veterans Day</option>
+                        <option value="thanksgiving">Thanksgiving Day</option>
+                        <option value="christmas">Christmas Day</option>
                     </select>
-                    <p class="muted form-hint" id="holiday-theme-auto-preview"></p>
+                    <p class="muted form-hint" id="holiday-theme-auto-preview">Loading current settings…</p>
                     <div class="row-actions">
                         <button type="submit" id="holiday-theme-save">Save for all companies</button>
                     </div>
                 </form>
-                <div id="holiday-theme-swatches" class="holiday-theme-swatches" aria-label="Theme previews"></div>
+                <h3>Available themes</h3>
+                <div id="holiday-theme-swatches" class="holiday-theme-swatches" aria-label="Theme previews">
+                    <button type="button" class="holiday-theme-swatch" data-skin="new_year" aria-label="Preview New Year's Day"><span class="holiday-theme-swatch-label">New Year's Day</span></button>
+                    <button type="button" class="holiday-theme-swatch" data-skin="mlk" aria-label="Preview Martin Luther King Jr. Day"><span class="holiday-theme-swatch-label">MLK Day</span></button>
+                    <button type="button" class="holiday-theme-swatch" data-skin="presidents" aria-label="Preview Presidents' Day"><span class="holiday-theme-swatch-label">Presidents' Day</span></button>
+                    <button type="button" class="holiday-theme-swatch" data-skin="memorial" aria-label="Preview Memorial Day"><span class="holiday-theme-swatch-label">Memorial Day</span></button>
+                    <button type="button" class="holiday-theme-swatch" data-skin="juneteenth" aria-label="Preview Juneteenth"><span class="holiday-theme-swatch-label">Juneteenth</span></button>
+                    <button type="button" class="holiday-theme-swatch" data-skin="independence" aria-label="Preview Independence Day"><span class="holiday-theme-swatch-label">Independence Day</span></button>
+                    <button type="button" class="holiday-theme-swatch" data-skin="labor" aria-label="Preview Labor Day"><span class="holiday-theme-swatch-label">Labor Day</span></button>
+                    <button type="button" class="holiday-theme-swatch" data-skin="columbus" aria-label="Preview Columbus Day"><span class="holiday-theme-swatch-label">Columbus Day</span></button>
+                    <button type="button" class="holiday-theme-swatch" data-skin="veterans" aria-label="Preview Veterans Day"><span class="holiday-theme-swatch-label">Veterans Day</span></button>
+                    <button type="button" class="holiday-theme-swatch" data-skin="thanksgiving" aria-label="Preview Thanksgiving Day"><span class="holiday-theme-swatch-label">Thanksgiving</span></button>
+                    <button type="button" class="holiday-theme-swatch" data-skin="christmas" aria-label="Preview Christmas Day"><span class="holiday-theme-swatch-label">Christmas</span></button>
+                </div>
             </div>
         </div>
     </div>

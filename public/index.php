@@ -14,6 +14,8 @@ require dirname(__DIR__) . '/app/Core/ArrowChatBridge.php';
 require dirname(__DIR__) . '/app/Services/AuditLogger.php';
 require dirname(__DIR__) . '/app/Services/WeatherAlertsService.php';
 require dirname(__DIR__) . '/app/Services/AppointmentBoardService.php';
+require dirname(__DIR__) . '/app/Services/UsFederalHolidays.php';
+require dirname(__DIR__) . '/app/Services/PlatformSettings.php';
 require dirname(__DIR__) . '/app/Controllers/PageController.php';
 require dirname(__DIR__) . '/app/Controllers/ApiController.php';
 require dirname(__DIR__) . '/app/Controllers/SupportController.php';

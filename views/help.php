@@ -135,7 +135,7 @@
                 <li><strong>People</strong> — Create users, roles, and PINs.</li>
                 <li><strong>Company</strong> — Company name, owner email, <strong>time zone</strong> (dropdown), <strong>US ZIP for weather</strong> (optional), header logo URL, default theme, and (for privileged roles) company login, plan, and account active flag.</li>
                 <li><strong>Plans / Feature matrix</strong> — Subscription level and which optional features (reports, training, chat, ads, etc.) are on for your tenant.</li>
-                <li><strong>Holiday themes</strong> (owner / super admin) — Site-wide seasonal backgrounds for all companies: <em>Automatic</em> follows the federal holiday calendar (±4 days), <em>Force</em> applies one built-in holiday look everywhere, or <em>Off</em> disables seasonal tints. Click a swatch to preview, then save.</li>
+                <li><strong>Holiday themes</strong> (owner / super admin) — Site-wide seasonal backgrounds for all companies. Eleven federal holiday themes are stored in the database (New Year through Christmas). Choose <em>Automatic</em> (±4 days by calendar), <em>Force</em> one theme for everyone, or <em>Off</em>. Click a swatch to preview, then save.</li>
                 <li><strong>Training</strong> (when enabled) — Definitions, templates, and assigning training to users.</li>
                 <li><strong>Audit logs</strong> (when enabled) — History of important actions.</li>
             </ul>

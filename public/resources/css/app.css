@@ -2030,12 +2030,27 @@ body.auth-page-register .auth-page-card {
   font-weight: 600;
   line-height: 1.25;
 }
+.holiday-theme-swatch-desc {
+  display: block;
+  margin-top: 0.35rem;
+  max-width: 100%;
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.78);
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: #3a4566;
+}
 .theme-dark .holiday-theme-swatch {
   border-color: rgba(200, 210, 240, 0.2);
   color: #f0f4ff;
 }
 .theme-dark .holiday-theme-swatch-label {
   background: rgba(20, 28, 44, 0.88);
+}
+.theme-dark .holiday-theme-swatch-desc {
+  background: rgba(20, 28, 44, 0.78);
+  color: #c8d2ef;
 }
 .holiday-theme-swatch[data-skin="new_year"] {
   background:
